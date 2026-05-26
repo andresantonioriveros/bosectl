@@ -1,6 +1,7 @@
 // RFCOMM transport implementation using raw Linux Bluetooth sockets.
 #include "transport.h"
 
+#ifndef __APPLE__
 #include <bluetooth/bluetooth.h>
 #include <bluetooth/rfcomm.h>
 #include <cerrno>
@@ -100,3 +101,31 @@ void RfcommTransport::set_recv_timeout(int ms) {
 }
 
 } // namespace bmap
+
+#else // __APPLE__
+#include <stdexcept>
+
+namespace bmap {
+
+RfcommTransport::RfcommTransport(const std::string&, uint8_t) {
+    throw std::runtime_error("Bluetooth RFCOMM sockets not supported on macOS in C++ library. Use Python bosectl instead.");
+}
+
+RfcommTransport::~RfcommTransport() {}
+
+std::vector<uint8_t> RfcommTransport::send_recv(const std::vector<uint8_t>&) {
+    throw std::runtime_error("Not supported on macOS");
+}
+
+std::vector<uint8_t> RfcommTransport::send_recv_drain(const std::vector<uint8_t>&) {
+    throw std::runtime_error("Not supported on macOS");
+}
+
+std::vector<uint8_t> RfcommTransport::send_recv_inner(const std::vector<uint8_t>&, bool) {
+    throw std::runtime_error("Not supported on macOS");
+}
+
+void RfcommTransport::set_recv_timeout(int) {}
+
+} // namespace bmap
+#endif

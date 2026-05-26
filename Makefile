@@ -23,7 +23,12 @@ PYTHON = $(VENV)/bin/python
 
 $(VENV)/bin/activate:
 	python3 -m venv $(VENV)
+	$(PIP) install -q --upgrade pip
 	$(PIP) install -q pytest
+	@if [ "$$(uname -s)" = "Darwin" ]; then \
+		echo "Installing macOS Bluetooth dependencies (PyObjC) in virtualenv..."; \
+		$(PIP) install -q pyobjc-core==9.2 pyobjc-framework-Cocoa==9.2 pyobjc-framework-IOBluetooth==9.2; \
+	fi
 
 python-setup: $(VENV)/bin/activate ## Set up Python virtualenv
 	$(PIP) install -q -e $(PYTHON_DIR)
