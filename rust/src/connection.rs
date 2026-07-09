@@ -357,30 +357,43 @@ impl<T: Transport> BmapConnection<T> {
 
     /// Read current audio settings as 5-tuple: (cnc, auto_cnc, spatial, wind, anc).
     pub fn audio_settings(&self) -> BmapResult<(u8, u8, u8, u8, u8)> {
-        let addr = self.addr(self.config.audio_settings)?;
-        let p = self.get(addr)?;
-        Ok((
-            p.first().copied().unwrap_or(0),
-            p.get(1).copied().unwrap_or(0),
-            p.get(2).copied().unwrap_or(0),
-            p.get(3).copied().unwrap_or(1),
-            p.get(4).copied().unwrap_or(1),
-        ))
+        if let Some(addr) = self.config.audio_settings {
+            let p = self.get(addr)?;
+            Ok((
+                p.first().copied().unwrap_or(0),
+                p.get(1).copied().unwrap_or(0),
+                p.get(2).copied().unwrap_or(0),
+                p.get(3).copied().unwrap_or(1),
+                p.get(4).copied().unwrap_or(1),
+            ))
+        } else {
+            let mc = self.current_mode_config()?;
+            Ok((
+                mc.cnc_level,
+                0,
+                mc.spatial,
+                if mc.wind_block { 1 } else { 0 },
+                if mc.anc_toggle { 1 } else { 0 },
+            ))
+        }
     }
 
     fn update_audio_settings(&self, cnc: Option<u8>, spatial: Option<u8>,
                               wind: Option<bool>, anc: Option<bool>) -> BmapResult<()> {
-        let addr = self.addr(self.config.audio_settings)?;
-        let cur = self.get(addr)?;
-        let payload = [
-            cnc.unwrap_or(cur.first().copied().unwrap_or(0)),
-            cur.get(1).copied().unwrap_or(0),  // auto_cnc
-            spatial.unwrap_or(cur.get(2).copied().unwrap_or(0)),
-            wind.map(|b| if b { 1 } else { 0 }).unwrap_or(cur.get(3).copied().unwrap_or(1)),
-            anc.map(|b| if b { 1 } else { 0 }).unwrap_or(cur.get(4).copied().unwrap_or(1)),
-        ];
-        self.setget(addr, &payload)?;
-        Ok(())
+        if let Some(addr) = self.config.audio_settings {
+            let cur = self.get(addr)?;
+            let payload = [
+                cnc.unwrap_or(cur.first().copied().unwrap_or(0)),
+                cur.get(1).copied().unwrap_or(0),  // auto_cnc
+                spatial.unwrap_or(cur.get(2).copied().unwrap_or(0)),
+                wind.map(|b| if b { 1 } else { 0 }).unwrap_or(cur.get(3).copied().unwrap_or(1)),
+                anc.map(|b| if b { 1 } else { 0 }).unwrap_or(cur.get(4).copied().unwrap_or(1)),
+            ];
+            self.setget(addr, &payload)?;
+            Ok(())
+        } else {
+            self.update_current_mode_config(cnc, spatial, wind, anc)
+        }
     }
 
     /// Toggle voice prompts. Preserves current language.
@@ -530,11 +543,46 @@ impl<T: Transport> BmapConnection<T> {
         })
     }
 
+    fn current_mode_config(&self) -> BmapResult<ModeConfig> {
+        let idx = self.mode_idx()?;
+        let modes = self.modes()?;
+        modes.into_iter()
+            .find(|m| m.mode_idx == idx)
+            .ok_or_else(|| BmapError::Device {
+                message: "Current mode config not available".into(), code: 0,
+            })
+    }
+
+    fn update_current_mode_config(&self, cnc: Option<u8>, spatial: Option<u8>,
+                                  wind: Option<bool>, anc: Option<bool>) -> BmapResult<()> {
+        if anc.is_some() && !self.config.supports_anc_toggle {
+            return Err(BmapError::Unsupported(
+                "Device does not expose an ANC on/off toggle".into()
+            ));
+        }
+        let mut mc = self.current_mode_config()?;
+        if !mc.editable {
+            return Err(BmapError::Unsupported(
+                format!("Current mode '{}' is not editable on this device", mc.name)
+            ));
+        }
+        if let Some(v) = cnc { mc.cnc_level = v; }
+        if let Some(v) = spatial { mc.spatial = v; }
+        if let Some(v) = wind { mc.wind_block = v; }
+        if let Some(v) = anc { mc.anc_toggle = v; }
+        self.write_mode(
+            mc.mode_idx, &mc.name, mc.cnc_level, mc.spatial,
+            mc.wind_block, mc.anc_toggle, mc.prompt_b1, mc.prompt_b2,
+        )
+    }
+
     fn write_mode(&self, slot: u8, name: &str, cnc_level: u8, spatial: u8,
                    wind_block: bool, anc_toggle: bool, prompt_b1: u8, prompt_b2: u8)
                    -> BmapResult<()> {
         let addr = self.addr(self.config.mode_config)?;
-        let payload = build_mode_config_40(
+        let builder = self.config.build_mode_config
+            .ok_or_else(|| BmapError::Unsupported("Device has no mode config builder".into()))?;
+        let payload = builder(
             slot, name, cnc_level, spatial, wind_block, anc_toggle, prompt_b1, prompt_b2,
         );
         let data = self.transport.send_recv_drain(
@@ -806,5 +854,37 @@ mod tests {
         let dev = BmapConnection::new(t, devices::qc_ultra2());
         // "nonexistent" is not a preset, and modes() will fail (no mock for get_all_modes)
         assert!(dev.set_mode("nonexistent", false).is_err());
+    }
+
+    #[test]
+    fn test_prince_set_wind_uses_mode_config_fallback() {
+        let music = vec![
+            0x03,0x00,0x0c,0x01,0x01,0x00,0x4d,0x75,0x73,0x69,0x63,0x00,0x00,0x00,0x00,0x00,
+            0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+            0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x09,0x05,0x00,0x00,0x00,0x00,
+        ];
+        let mut t = MockTransport::new();
+        t.add(31, 3, 0x03, &[3]); // current mode: Music
+        let mut get_all = vec![31, 6, 0x03, music.len() as u8];
+        get_all.extend_from_slice(&music);
+        t.responses.insert((31, 1), get_all);
+        t.add(31, 6, 0x03, &music);
+        let dev = BmapConnection::new(t, devices::qc_prince());
+
+        assert!(dev.set_wind(true).is_ok());
+
+        let sent = dev.transport.sent.borrow();
+        let last = sent.last().unwrap();
+        assert_eq!(&last[..4], &[31, 6, 0x02, 39]);
+        assert_eq!(last[4], 3);
+        assert_eq!(last[4 + 35], 5);
+        assert_eq!(last[4 + 38], 1);
+    }
+
+    #[test]
+    fn test_prince_set_anc_rejects_missing_toggle() {
+        let t = MockTransport::new();
+        let dev = BmapConnection::new(t, devices::qc_prince());
+        assert!(dev.set_anc(false).is_err());
     }
 }

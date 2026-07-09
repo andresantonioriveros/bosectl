@@ -220,8 +220,8 @@ def cmd_dump(dev):
     for resp in responses:
         print(fmt_response(resp))
         if resp.fblock == 31 and resp.func == 6 and resp.op == pybmap.constants.OP_STATUS:
-            from pybmap.devices.parsers import parse_mode_config_48
-            config = parse_mode_config_48(resp.payload)
+            parser = dev._feature("mode_config").get("parser")
+            config = parser(resp.payload) if parser else None
             if config:
                 for field in config._fields:
                     if field != "raw":
@@ -383,13 +383,17 @@ def main():
             val = _parse_bool_arg(sys.argv[2:], "anc")
             if val is not None:
                 dev.set_anc(val)
-            settings = dev._get("audio_settings")
-            print("on" if settings.anc_toggle else "off")
+            if (not dev.has_feature("audio_settings") and
+                    not getattr(dev._device, "SUPPORTS_ANC_TOGGLE", True)):
+                print("unsupported")
+            else:
+                settings = dev.audio_settings()
+                print("on" if settings.anc_toggle else "off")
         elif cmd == "wind":
             val = _parse_bool_arg(sys.argv[2:], "wind")
             if val is not None:
                 dev.set_wind(val)
-            settings = dev._get("audio_settings")
+            settings = dev.audio_settings()
             print("on" if settings.wind_block else "off")
         elif cmd == "sidetone":
             if len(sys.argv) > 2:

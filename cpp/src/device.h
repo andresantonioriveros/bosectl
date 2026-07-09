@@ -1,6 +1,7 @@
 // Device configuration and parser types.
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <functional>
@@ -80,6 +81,8 @@ struct DeviceStatus {
 };
 
 using ModeConfigParser = std::function<std::optional<ModeConfig>(const std::vector<uint8_t>&)>;
+using ModeConfigBuilder = std::function<std::vector<uint8_t>(
+    uint8_t, const std::string&, uint8_t, uint8_t, bool, bool, uint8_t, uint8_t)>;
 
 struct DeviceConfig {
     DeviceInfo info;
@@ -112,6 +115,8 @@ struct DeviceConfig {
     std::vector<std::pair<std::string, PresetMode>> preset_modes;
     std::vector<uint8_t> editable_slots;
     ModeConfigParser parse_mode_config;
+    ModeConfigBuilder build_mode_config;
+    bool supports_anc_toggle = false;
 };
 
 // ── Shared Parsers ──────────────────────────────────────────────────────────
@@ -331,6 +336,41 @@ inline std::optional<ModeConfig> parse_mode_config_qc_ultra2(const std::vector<u
     return std::nullopt;
 }
 
+// ── QuietComfort Headphones / prince Mode Config Parser ────────────────────
+
+inline std::optional<ModeConfig> parse_mode_config_prince(const std::vector<uint8_t>& p) {
+    if (p.size() < 6) return std::nullopt;
+
+    ModeConfig mc;
+    mc.mode_idx = p[0];
+    mc.prompt_b1 = p[1];
+    mc.prompt_b2 = p[2];
+    mc.anc_toggle = false;
+
+    if (p.size() >= 47) {
+        mc.editable = p[3] != 0;
+        mc.configured = p[4] != 0;
+        auto name_end = std::find(p.data() + 6, p.data() + 38, '\0');
+        mc.name = std::string(reinterpret_cast<const char*>(p.data() + 6),
+                              reinterpret_cast<const char*>(name_end));
+        mc.cnc_level = p[42];
+        mc.spatial = p[44];
+        mc.wind_block = p[46] != 0;
+        return mc;
+    } else if (p.size() >= 39) {
+        mc.editable = true;
+        mc.configured = true;
+        auto name_end = std::find(p.data() + 3, p.data() + 35, '\0');
+        mc.name = std::string(reinterpret_cast<const char*>(p.data() + 3),
+                              reinterpret_cast<const char*>(name_end));
+        mc.cnc_level = p[35];
+        mc.spatial = p[37];
+        mc.wind_block = p[38] != 0;
+        return mc;
+    }
+    return std::nullopt;
+}
+
 // ── Mode Config Builder ─────────────────────────────────────────────────────
 
 inline std::vector<uint8_t> build_mode_config_40(
@@ -349,6 +389,24 @@ inline std::vector<uint8_t> build_mode_config_40(
     payload.push_back(spatial);
     payload.push_back(wind_block ? 1 : 0);
     payload.push_back(anc_toggle ? 1 : 0);
+    return payload;
+}
+
+inline std::vector<uint8_t> build_mode_config_39(
+    uint8_t mode_idx, const std::string& name, uint8_t cnc_level, uint8_t spatial,
+    bool wind_block, bool /*anc_toggle*/, uint8_t prompt_b1 = 0, uint8_t prompt_b2 = 0)
+{
+    std::vector<uint8_t> payload;
+    payload.reserve(39);
+    payload.push_back(mode_idx);
+    payload.push_back(prompt_b1);
+    payload.push_back(prompt_b2);
+    auto encoded = encode_mode_name(name);
+    payload.insert(payload.end(), encoded.begin(), encoded.end());
+    payload.push_back(cnc_level);
+    payload.push_back(0); // auto_cnc
+    payload.push_back(spatial);
+    payload.push_back(wind_block ? 1 : 0);
     return payload;
 }
 

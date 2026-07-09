@@ -137,9 +137,13 @@ fn main() {
                     return err_exit(&e);
                 }
             }
-            dev.audio_settings().map(|(_, _, _, _, anc)| {
-                println!("{}", if anc != 0 { "on" } else { "off" });
-            })
+            if dev.config().audio_settings.is_none() && !dev.config().supports_anc_toggle {
+                Ok(println!("unsupported"))
+            } else {
+                dev.audio_settings().map(|(_, _, _, _, anc)| {
+                    println!("{}", if anc != 0 { "on" } else { "off" });
+                })
+            }
         }
         "wind" => {
             if args.len() > 2 {
@@ -322,5 +326,5 @@ fn usage() {
     println!();
     println!("Environment:");
     println!("  BMAP_MAC=XX:XX:XX:XX:XX:XX   Device MAC (auto-detected if unset)");
-    println!("  BMAP_DEVICE=qc_ultra2         Device type (default: qc_ultra2)");
+    println!("  BMAP_DEVICE=qc_ultra2|qc_prince|qc35   Device type");
 }

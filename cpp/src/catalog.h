@@ -39,7 +39,7 @@ inline const std::vector<BoseDevice>& catalog() {
         {0x402B, "beanie",     "Hearphones II",                           Category::Headphones, nullptr},
         {0x4039, "duran",      "QuietComfort 45",                         Category::Headphones, nullptr},
         {0x4066, "lonestarr",  "QuietComfort Ultra Headphones",           Category::Headphones, nullptr},
-        {0x4075, "prince",     "QuietComfort Headphones",                 Category::Headphones, nullptr},
+        {0x4075, "prince",     "QuietComfort Headphones",                 Category::Headphones, "qc_prince"},
         {0x4082, "wolverine",  "QuietComfort Ultra Headphones (2nd Gen)", Category::Headphones, "qc_ultra2"},
         // Earbuds
         {0x4012, "ice",        "SoundSport",                              Category::Earbuds, nullptr},

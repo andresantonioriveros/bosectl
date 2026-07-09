@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/aaronsb/bosectl)](https://github.com/aaronsb/bosectl/releases/latest)
-[![Devices](https://img.shields.io/badge/Devices-2_supported_·_14_known-green)](docs/architecture.md#device-catalog)
+[![Devices](https://img.shields.io/badge/Devices-3_supported_·_38_known-green)](docs/architecture.md#device-catalog)
 [![Python 3](https://img.shields.io/badge/Python-3-3572A5.svg)](python/)
 [![Rust](https://img.shields.io/badge/Rust-1.70+-DEA584.svg)](rust/)
 [![C++17](https://img.shields.io/badge/C++-17-f34b7d.svg)](cpp/)
@@ -26,6 +26,7 @@ connection to the headphones.
 | Device | NC Control | EQ | Spatial | Profiles | Buttons | Status |
 |--------|-----------|-----|---------|----------|---------|--------|
 | **QC Ultra Headphones 2** | CNC 0-10 slider | 3-band | room/head | 7 custom slots | Shortcut remap | Verified |
+| **QuietComfort Headphones** | CNC 0-10 + Wind Block via ModeConfig | — | field observed | 2 user slots observed | — | Verified (`prince`) |
 | **QuietComfort 35 / 35 II** | ANR off/high/wind/low | — | — | — | Action remap (VPA/ANC) | Verified |
 
 ### Device Roadmap
@@ -38,7 +39,6 @@ product ID but don't have tested configurations yet — contributions welcome:
 |--------|----------|----------|-----|
 | Noise Cancelling Headphones 700 | goodyear | Headphones | `0x4024` |
 | QuietComfort 45 | duran | Headphones | `0x4039` |
-| QuietComfort Headphones | prince | Headphones | `0x4075` |
 | QuietComfort Ultra Headphones | lonestarr | Headphones | `0x4066` |
 | QuietComfort Earbuds II | smalls | Earbuds | `0x4064` |
 | QuietComfort Ultra Earbuds | scotty | Earbuds | `0x4072` |
@@ -46,7 +46,8 @@ product ID but don't have tested configurations yet — contributions welcome:
 | SoundLink Flex | phelps | Speaker | `0xBC59` |
 | SoundLink Flex 2 | mathers | Speaker | `0xBC61` |
 
-Adding a new device is a configuration entry — no library code changes needed.
+Adding a new device is usually a configuration entry; devices with different
+payload layouts may need a parser/builder pair.
 See [Adding a New Device](docs/architecture.md#adding-a-new-device).
 
 ## Quick Start
@@ -60,7 +61,7 @@ with pybmap.connect() as dev:
     print(dev.battery())            # 80
     print(dev.name())               # "Obsidian Countess"
     dev.set_anr("high")             # QC35: full noise cancellation
-    dev.set_cnc(8)                  # QC Ultra 2: CNC level 0-10
+    dev.set_cnc(8)                  # CNC level 0-10 (0=max ANC)
     dev.set_eq(3, 0, -2)            # Bass +3, mid flat, treble -2
     dev.set_buttons(0x10, 4, 2)     # Remap Action button to ANC
 ```
@@ -71,7 +72,7 @@ use bmap::connect;
 let dev = connect(None, None)?;
 println!("{}%", dev.battery()?);    // 80
 dev.set_anr("high")?;              // QC35
-dev.set_cnc(8)?;                   // QC Ultra 2
+dev.set_cnc(8)?;                   // CNC level 0-10 (0=max ANC)
 ```
 
 ```cpp
@@ -80,7 +81,7 @@ dev.set_cnc(8)?;                   // QC Ultra 2
 auto dev = bmap::connect();
 std::cout << (int)dev->battery() << "%\n";
 dev->set_anr("high");              // QC35
-dev->set_cnc(8);                   // QC Ultra 2
+dev->set_cnc(8);                   // CNC level 0-10 (0=max ANC)
 ```
 
 ### CLI Usage
@@ -88,7 +89,7 @@ dev->set_cnc(8);                   // QC Ultra 2
 ```bash
 # Auto-detects paired Bose device
 bosectl status              # Show model, battery, mode, settings
-bosectl cnc 7               # Noise cancellation level (QC Ultra 2)
+bosectl cnc 7               # Noise cancellation level (0=max ANC)
 bosectl anr high            # Noise cancellation mode (QC35)
 bosectl eq 3 0 -2           # EQ: bass/mid/treble
 bosectl buttons set ANC     # Remap programmable button
@@ -111,8 +112,9 @@ pybmap.modalias(0x4082)   # "bluetooth:v05A7p4082d0000"
 
 # Check support status
 pybmap.is_supported(0x4082)  # True — has tested config
+pybmap.is_supported(0x4075)  # True — QuietComfort Headphones (prince)
 pybmap.is_supported(0x4039)  # False — QC45, recognized but untested
-pybmap.supported_devices()   # [wolfcastle, baywolf, edith, wolverine]
+pybmap.supported_devices()   # [wolfcastle, baywolf, edith, prince, wolverine]
 pybmap.known_devices()       # full catalog
 ```
 
@@ -177,8 +179,8 @@ Application → BmapConnection → Device Config → Transport → Protocol → 
 - **Catalog** — all known Bose BMAP devices with product IDs, codenames, and USB identifiers
 
 Device differences (RFCOMM channel, init packets, feature availability) are
-expressed as config data, not code branches. Adding a new device is a
-config entry pointing to existing parsers.
+expressed as config data. Devices with new payload layouts can point to
+device-specific parsers and builders.
 
 Full documentation: **[docs/architecture.md](docs/architecture.md)**
 
@@ -193,7 +195,8 @@ ECDH authentication, **SETGET** (operator 2) and **START** (operator 5)
 are unauthenticated on the Settings and AudioModes blocks. This gives
 full control over every user-facing setting.
 
-Full protocol reference: **[NOTES.md](NOTES.md)**
+Full protocol reference: **[NOTES.md](NOTES.md)** and
+**[QuietComfort Headphones notes](docs/quietcomfort-headphones-prince.md)**.
 
 ### How We Found This
 

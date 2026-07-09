@@ -13,6 +13,7 @@ using namespace bmap;
 class MockTransport : public Transport {
 public:
     std::map<std::pair<uint8_t,uint8_t>, std::vector<uint8_t>> responses;
+    std::vector<std::vector<uint8_t>> sent;
 
     void add(uint8_t fblock, uint8_t func, uint8_t op, std::vector<uint8_t> payload) {
         std::vector<uint8_t> resp = {fblock, func, op, static_cast<uint8_t>(payload.size())};
@@ -21,6 +22,7 @@ public:
     }
 
     std::vector<uint8_t> send_recv(const std::vector<uint8_t>& packet) override {
+        sent.push_back(packet);
         auto key = std::make_pair(packet[0], packet[1]);
         auto it = responses.find(key);
         if (it != responses.end()) return it->second;
@@ -117,6 +119,44 @@ TEST(error_response_throws) {
     try { dev.cnc(); } catch (const std::runtime_error& e) {
         threw = true;
         ASSERT_TRUE(std::string(e.what()).find("auth") != std::string::npos);
+    }
+    ASSERT_TRUE(threw);
+}
+
+TEST(prince_set_wind_uses_mode_config_fallback) {
+    std::vector<uint8_t> music = {
+        0x03,0x00,0x0c,0x01,0x01,0x00,0x4d,0x75,0x73,0x69,0x63,0x00,0x00,0x00,0x00,0x00,
+        0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+        0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x09,0x05,0x00,0x00,0x00,0x00,
+    };
+    auto raw = new MockTransport();
+    raw->add(31, 3, 0x03, {3});
+    std::vector<uint8_t> get_all = {31, 6, 0x03, static_cast<uint8_t>(music.size())};
+    get_all.insert(get_all.end(), music.begin(), music.end());
+    raw->responses[{31, 1}] = get_all;
+    raw->add(31, 6, 0x03, music);
+    MockTransport* view = raw;
+    BmapConnection dev(std::unique_ptr<Transport>(raw), qc_prince());
+
+    dev.set_wind(true);
+
+    auto last = view->sent.back();
+    ASSERT_EQ(last[0], 31);
+    ASSERT_EQ(last[1], 6);
+    ASSERT_EQ(last[2], 0x02);
+    ASSERT_EQ(last[3], 39);
+    ASSERT_EQ(last[4], 3);
+    ASSERT_EQ(last[4 + 35], 5);
+    ASSERT_EQ(last[4 + 38], 1);
+}
+
+TEST(prince_set_anc_rejects_missing_toggle) {
+    auto t = std::make_unique<MockTransport>();
+    BmapConnection dev(std::move(t), qc_prince());
+    bool threw = false;
+    try { dev.set_anc(false); } catch (const std::runtime_error& e) {
+        threw = true;
+        ASSERT_TRUE(std::string(e.what()).find("ANC") != std::string::npos);
     }
     ASSERT_TRUE(threw);
 }

@@ -35,12 +35,21 @@ TEST(catalog_lookup_qc_ultra2_earbuds) {
     ASSERT_EQ(std::string(dev->config), std::string("qc_ultra2"));
 }
 
+TEST(catalog_lookup_qc_prince) {
+    auto* dev = lookup_device(0x4075);
+    ASSERT_TRUE(dev != nullptr);
+    ASSERT_EQ(std::string(dev->codename), std::string("prince"));
+    ASSERT_TRUE(dev->config != nullptr);
+    ASSERT_EQ(std::string(dev->config), std::string("qc_prince"));
+}
+
 TEST(catalog_lookup_unknown) {
     ASSERT_TRUE(lookup_device(0xFFFF) == nullptr);
 }
 
 TEST(catalog_is_supported) {
     ASSERT_TRUE(is_supported(0x4082));
+    ASSERT_TRUE(is_supported(0x4075));
     ASSERT_TRUE(is_supported(0x4020));
     ASSERT_FALSE(is_supported(0x4024));  // NCH 700, no config
     ASSERT_FALSE(is_supported(0xFFFF));
@@ -48,7 +57,7 @@ TEST(catalog_is_supported) {
 
 TEST(catalog_supported_devices) {
     auto devs = supported_devices();
-    ASSERT_TRUE(devs.size() >= 4u);  // wolfcastle, baywolf, edith, wolverine
+    ASSERT_TRUE(devs.size() >= 5u);  // wolfcastle, baywolf, edith, prince, wolverine
     for (auto* d : devs) {
         ASSERT_TRUE(d->config != nullptr);
     }

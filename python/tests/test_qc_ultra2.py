@@ -1,6 +1,6 @@
 """Tests for QC Ultra 2 device configuration."""
 
-from pybmap.devices import qc_ultra2, DEVICES, get_device
+from pybmap.devices import qc_ultra2, qc_prince, DEVICES, get_device
 
 
 class TestDeviceRegistry:
@@ -9,6 +9,9 @@ class TestDeviceRegistry:
 
     def test_qc35_registered(self):
         assert "qc35" in DEVICES
+
+    def test_qc_prince_registered(self):
+        assert "qc_prince" in DEVICES
 
     def test_get_device(self):
         dev = get_device("qc_ultra2")
@@ -71,6 +74,27 @@ class TestQCUltra2Config:
         mc = qc_ultra2.FEATURES["mode_config"]
         assert mc["parser"] is not None
         assert mc["builder"] is not None
+
+
+class TestQCPrinceConfig:
+    def test_has_device_info(self):
+        assert qc_prince.DEVICE_INFO["codename"] == "prince"
+        assert qc_prince.DEVICE_INFO["product_id"] == 0x4075
+
+    def test_uses_channel_8(self):
+        assert qc_prince.RFCOMM_CHANNEL == 8
+
+    def test_no_audio_settings(self):
+        assert "audio_settings" not in qc_prince.FEATURES
+
+    def test_mode_config_has_prince_parser_and_builder(self):
+        mc = qc_prince.FEATURES["mode_config"]
+        assert mc["parser"] is not None
+        assert mc["builder"] is not None
+
+    def test_no_anc_toggle(self):
+        assert qc_prince.SUPPORTS_ANC_TOGGLE is False
+        assert "anc_toggle" not in qc_prince.STATUS_OFFSETS
 
 
 class TestQC35Config:
