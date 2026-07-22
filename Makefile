@@ -27,7 +27,7 @@ $(VENV)/bin/activate:
 	$(PIP) install -q pytest
 	@if [ "$$(uname -s)" = "Darwin" ]; then \
 		echo "Installing macOS Bluetooth dependencies (PyObjC) in virtualenv..."; \
-		$(PIP) install -q pyobjc-core==9.2 pyobjc-framework-Cocoa==9.2 pyobjc-framework-IOBluetooth==9.2; \
+		$(PIP) install -q pyobjc-core pyobjc-framework-Cocoa pyobjc-framework-IOBluetooth; \
 	fi
 
 python-setup: $(VENV)/bin/activate ## Set up Python virtualenv
