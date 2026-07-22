@@ -8,7 +8,8 @@ echo ""
 
 # 1. Install dependencies
 echo "Installing macOS Bluetooth dependencies (PyObjC)..."
-python3 -m pip install --user pyobjc-core==9.2 pyobjc-framework-Cocoa==9.2 pyobjc-framework-IOBluetooth==9.2
+# ponytail: unpinned — 9.2 has no wheels for Python 3.13+; pin again only if an API break shows up
+python3 -m pip install --user pyobjc-core pyobjc-framework-Cocoa pyobjc-framework-IOBluetooth
 
 # 2. Make bosectl script executable
 echo "Configuring executable permissions..."
