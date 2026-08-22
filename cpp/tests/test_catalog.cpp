@@ -50,6 +50,8 @@ TEST(catalog_lookup_unknown) {
 TEST(catalog_is_supported) {
     ASSERT_TRUE(is_supported(0x4082));
     ASSERT_TRUE(is_supported(0x4075));
+    ASSERT_TRUE(is_supported(0x402F));  // lando
+    ASSERT_TRUE(is_supported(0x4039));  // duran
     ASSERT_TRUE(is_supported(0x4020));
     ASSERT_FALSE(is_supported(0x4024));  // NCH 700, no config
     ASSERT_FALSE(is_supported(0xFFFF));

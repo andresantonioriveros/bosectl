@@ -124,6 +124,9 @@ pub struct DeviceConfig {
     pub build_mode_config: Option<fn(u8, &str, u8, u8, bool, bool, u8, u8) -> Vec<u8>>,
     /// Whether the ModeConfig or audio settings layout exposes an ANC toggle bit.
     pub supports_anc_toggle: bool,
+    /// CNC is written with SETGET [1.5] payload [level, 1] (QC Earbuds);
+    /// AudioSettings [31.10] and ModeConfig [31.6] writes are unavailable.
+    pub cnc_direct_setget: bool,
 }
 
 // ── Shared Parsers ──────────────────────────────────────────────────────────
@@ -511,6 +514,38 @@ pub fn parse_mode_config_prince(payload: &[u8]) -> Option<ModeConfig> {
     } else {
         None
     }
+}
+
+/// Parse a 44-byte ModeConfig STATUS response (QuietComfort Earbuds/lando).
+///
+/// Name at [6..38]; the 6-byte tail is not understood and SETGET on this
+/// firmware fails with a Length error, so only identity and flags are read.
+pub fn parse_mode_config_44(payload: &[u8]) -> Option<ModeConfig> {
+    if payload.len() < 6 {
+        return None;
+    }
+    let mode_idx = payload[0];
+    let prompt_b1 = payload[1];
+    let prompt_b2 = payload[2];
+    let (editable, configured, name_bytes) = if payload.len() >= 44 {
+        (payload[3] != 0, payload[4] != 0, &payload[6..38])
+    } else {
+        (false, false, &payload[6..])
+    };
+    let name_end = name_bytes.iter().position(|&b| b == 0).unwrap_or(name_bytes.len());
+    let name = String::from_utf8_lossy(&name_bytes[..name_end]).into_owned();
+    Some(ModeConfig {
+        mode_idx,
+        name,
+        cnc_level: 0,
+        spatial: 0,
+        wind_block: false,
+        anc_toggle: false,
+        editable,
+        configured,
+        prompt_b1,
+        prompt_b2,
+    })
 }
 
 /// Build a 40-byte ModeConfig SETGET payload.

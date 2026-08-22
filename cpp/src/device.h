@@ -117,6 +117,9 @@ struct DeviceConfig {
     ModeConfigParser parse_mode_config;
     ModeConfigBuilder build_mode_config;
     bool supports_anc_toggle = false;
+    /// CNC is written with SETGET [1.5] payload [level, 1] (QC Earbuds);
+    /// AudioSettings [31.10] and ModeConfig [31.6] writes are unavailable.
+    bool cnc_direct_setget = false;
 };
 
 // ── Shared Parsers ──────────────────────────────────────────────────────────
@@ -369,6 +372,29 @@ inline std::optional<ModeConfig> parse_mode_config_prince(const std::vector<uint
         return mc;
     }
     return std::nullopt;
+}
+
+// ── QuietComfort Earbuds / lando Mode Config Parser ────────────────────────
+
+/// 44-byte STATUS: name at [6..38]; the 6-byte tail is not understood and
+/// SETGET on this firmware fails with a Length error, so only identity and
+/// flags are read.
+inline std::optional<ModeConfig> parse_mode_config_44(const std::vector<uint8_t>& p) {
+    if (p.size() < 6) return std::nullopt;
+    ModeConfig mc{};
+    mc.mode_idx = p[0];
+    mc.prompt_b1 = p[1];
+    mc.prompt_b2 = p[2];
+    const uint8_t* name_begin = p.data() + 6;
+    const uint8_t* name_limit = p.data() + (p.size() >= 44 ? 38 : p.size());
+    if (p.size() >= 44) {
+        mc.editable = p[3] != 0;
+        mc.configured = p[4] != 0;
+    }
+    auto name_end = std::find(name_begin, name_limit, '\0');
+    mc.name = std::string(reinterpret_cast<const char*>(name_begin),
+                          reinterpret_cast<const char*>(name_end));
+    return mc;
 }
 
 // ── Mode Config Builder ─────────────────────────────────────────────────────

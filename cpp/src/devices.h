@@ -93,10 +93,79 @@ inline DeviceConfig qc35() {
     return c;
 }
 
+/// Bose QuietComfort Earbuds (1st Gen) — codename lando, firmware 2.0.7.
+/// Contributed from hardware on #23. Four fixed modes; ModeConfig SETGET is
+/// non-functional, so CNC is written directly to [1.5].
+inline DeviceConfig qc_earbuds() {
+    DeviceConfig c;
+    c.info = {"Bose QC Earbuds", "lando", "QCC-384"};
+    c.rfcomm_channel = 8;
+    c.battery = Addr{2, 2};
+    c.firmware = Addr{0, 5};
+    c.product_name = Addr{1, 2};
+    c.voice_prompts = Addr{1, 3};
+    c.cnc = Addr{1, 5};
+    c.eq = Addr{1, 7};
+    c.buttons = Addr{1, 9};
+    c.multipoint = Addr{1, 10};
+    c.sidetone = Addr{1, 11};
+    c.pairing = Addr{4, 8};
+    c.routing = Addr{4, 12};
+    c.source = Addr{5, 1};
+    c.power = Addr{7, 4};
+    c.get_all_modes = Addr{31, 1};
+    c.current_mode = Addr{31, 3};
+    c.mode_config = Addr{31, 6};
+    c.favorites = Addr{31, 8};
+    c.preset_modes = {
+        {"quiet", {0, "Quiet - full ANC"}},
+        {"aware", {1, "Aware - transparency"}},
+    };
+    c.parse_mode_config = parse_mode_config_44;
+    c.supports_anc_toggle = false;
+    c.cnc_direct_setget = true;
+    return c;
+}
+
+/// Bose QuietComfort 45 — codename duran, CSR8670.
+/// Layout inferred from the Bose app (#21); unverified on hardware. Shares
+/// the prince 47/39-byte ModeConfig format. Needs GET [0.1] before responding.
+inline DeviceConfig qc45() {
+    DeviceConfig c;
+    c.info = {"Bose QuietComfort 45", "duran", "CSR8670"};
+    c.rfcomm_channel = 8;
+    c.init_packet = Addr{0, 1};
+    c.battery = Addr{2, 2};
+    c.firmware = Addr{0, 5};
+    c.product_name = Addr{1, 2};
+    c.voice_prompts = Addr{1, 3};
+    c.cnc = Addr{1, 5};
+    c.eq = Addr{1, 7};
+    c.buttons = Addr{1, 9};
+    c.multipoint = Addr{1, 10};
+    c.sidetone = Addr{1, 11};
+    c.pairing = Addr{4, 8};
+    c.get_all_modes = Addr{31, 1};
+    c.current_mode = Addr{31, 3};
+    c.mode_config = Addr{31, 6};
+    c.favorites = Addr{31, 8};
+    c.preset_modes = {
+        {"quiet", {0, "Quiet - full ANC"}},
+        {"aware", {1, "Aware - transparency"}},
+    };
+    c.editable_slots = {2, 3};
+    c.parse_mode_config = parse_mode_config_prince;
+    c.build_mode_config = build_mode_config_39;
+    c.supports_anc_toggle = false;
+    return c;
+}
+
 inline std::optional<DeviceConfig> get_device(const std::string& name) {
     if (name == "qc_ultra2") return qc_ultra2();
     if (name == "qc35") return qc35();
     if (name == "qc_prince") return qc_prince();
+    if (name == "qc_earbuds") return qc_earbuds();
+    if (name == "qc45") return qc45();
     return std::nullopt;
 }
 

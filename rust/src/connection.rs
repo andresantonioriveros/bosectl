@@ -333,6 +333,11 @@ impl<T: Transport> BmapConnection<T> {
         if level > 10 {
             return Err(BmapError::InvalidArg("CNC level must be 0-10".into()));
         }
+        if self.config.cnc_direct_setget {
+            let addr = self.addr(self.config.cnc)?;
+            self.setget(addr, &[level, 1])?;
+            return Ok(());
+        }
         self.update_audio_settings(Some(level), None, None, None)
     }
 

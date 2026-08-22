@@ -309,10 +309,18 @@ class BmapConnection:
         Scale is inverted: 0 = maximum ANC (blocks most outside sounds),
         10 = most ambient pass-through. The effect is only audible when
         anc_toggle=on AND wind_block=off — wind block masks CNC changes.
+
+        Uses direct [1.5] SETGET on devices without AudioSettingsConfig
+        (QC Earbuds), or [31.10] AudioSettingsConfig on newer devices.
         """
         if not 0 <= level <= 10:
             raise ValueError("CNC level must be 0-10, got %d" % level)
-        self._update_audio_settings(cnc_level=level)
+        # QC Earbuds (and similar): use direct [1.5] CNC SETGET when available
+        feat = self._feature("cnc")
+        if feat.get("builder") and not self.has_feature("audio_settings"):
+            self._setget("cnc", feat["builder"](level))
+        else:
+            self._update_audio_settings(cnc_level=level)
 
     def set_anc(self, enabled):
         """Toggle Active Noise Cancellation on/off (bool)."""

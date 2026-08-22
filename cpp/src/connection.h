@@ -125,6 +125,10 @@ public:
 
     void set_cnc(uint8_t level) {
         if (level > 10) throw std::runtime_error("CNC level must be 0-10");
+        if (config_.cnc_direct_setget) {
+            setget(require(config_.cnc, "cnc"), {level, 1});
+            return;
+        }
         update_audio_settings(level, 255, 255, 255);
     }
 
