@@ -2,7 +2,7 @@
 name = "pybmap"
 version = "0.3.0"
 description = "Control Bluetooth audio devices over the BMAP protocol"
-readme = "../README.md"
+readme = "README.md"
 license = "MIT"
 requires-python = ">=3.6"
 authors = [
@@ -14,6 +14,7 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
     "Programming Language :: Python :: 3",
     "Topic :: Multimedia :: Sound/Audio",
     "Topic :: System :: Hardware",
@@ -21,8 +22,8 @@ classifiers = [
 dependencies = []
 
 [project.urls]
-Homepage = "https://github.com/abock/bose-headphones"
-Repository = "https://github.com/abock/bose-headphones"
+Homepage = "https://github.com/aaronsb/bosectl"
+Repository = "https://github.com/aaronsb/bosectl"
 
 [project.scripts]
 bosectl = "pybmap.cli:main"
