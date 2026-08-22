@@ -45,6 +45,9 @@ pub fn scan_paired_devices() -> Vec<DiscoveredDevice> {
             continue;
         }
         let mac = parts[1];
+        if !is_mac(mac) {
+            continue;
+        }
 
         let info = match Command::new("bluetoothctl")
             .args(["info", mac])
@@ -100,10 +103,27 @@ fn detect_device_type(info: &str) -> String {
     "qc_ultra2".to_string()
 }
 
+/// Literal `xx:xx:xx:xx:xx:xx` check; mirrors the Python and C++ discovery guards.
+fn is_mac(s: &str) -> bool {
+    let b = s.as_bytes();
+    b.len() == 17
+        && b.iter().enumerate().all(|(i, &c)| {
+            if i % 3 == 2 { c == b':' } else { c.is_ascii_hexdigit() }
+        })
+}
+
 #[cfg(test)]
 mod tests {
     #[allow(unused_imports)]
     use super::*;
+
+    #[test]
+    fn test_is_mac() {
+        assert!(is_mac("AA:bb:CC:dd:EE:ff"));
+        assert!(!is_mac("AA:bb:CC:dd:EE:f"));
+        assert!(!is_mac("AA:bb:CC:dd:EE:ff;rm"));
+        assert!(!is_mac("AA-bb-CC-dd-EE-ff"));
+    }
 
     #[cfg(target_os = "macos")]
     #[test]

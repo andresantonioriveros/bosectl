@@ -1,5 +1,10 @@
 """Auto-detect paired BMAP devices (Linux/macOS)."""
 
+import re
+
+# Only a literal MAC is handed on to bluetoothctl, mirroring the C++ guard.
+_MAC_RE = re.compile(r"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
+
 import sys
 
 if sys.platform == "darwin":
@@ -72,6 +77,8 @@ else:
                 if len(parts) < 2:
                     continue
                 mac = parts[1]
+                if not _MAC_RE.match(mac):
+                    continue
                 info = subprocess.run(
                     ["bluetoothctl", "info", mac],
                     capture_output=True, text=True, timeout=3,

@@ -294,3 +294,22 @@ class TestUltraOpenConnection:
         dev = BmapConnection(transport, ultra_open)
         dev.set_mode("still")
         assert transport.sent[-1] == bytes([31, 3, 5, 2, 1, 0])
+
+
+class TestSetName:
+    def test_rejects_over_31_bytes(self, mock_dev):
+        with pytest.raises(ValueError, match="31 bytes"):
+            mock_dev.set_name("x" * 32)
+
+    def test_counts_utf8_bytes_not_chars(self, mock_dev):
+        with pytest.raises(ValueError):
+            mock_dev.set_name("é" * 16)  # 32 bytes
+        mock_dev.set_name("é" * 15)      # 30 bytes, fine
+
+
+class TestDiscoveryMacGuard:
+    def test_regex(self):
+        from pybmap.discovery import _MAC_RE
+        assert _MAC_RE.match("AA:bb:CC:dd:EE:ff")
+        assert not _MAC_RE.match("AA:bb:CC:dd:EE:ff;rm")
+        assert not _MAC_RE.match("AA-bb-CC-dd-EE-ff")

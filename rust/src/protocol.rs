@@ -95,7 +95,11 @@ pub fn bmap_packet(fblock: u8, func: u8, op: Operator, payload: &[u8]) -> Vec<u8
     pkt.push(fblock);
     pkt.push(func);
     pkt.push(op as u8);
-    pkt.push(payload.len() as u8);
+    // The length field is one byte; a longer payload is a caller bug, and a
+    // silent wrap would put a malformed frame on the wire.
+    let len = u8::try_from(payload.len())
+        .expect("BMAP payload exceeds single-byte length field");
+    pkt.push(len);
     pkt.extend_from_slice(payload);
     pkt
 }

@@ -21,6 +21,10 @@ from .errors import BmapError, BmapAuthError, BmapDeviceError
 from .types import DeviceStatus, AudioSettings
 
 
+# The device name field is 32 bytes on every BMAP device seen so far.
+MAX_NAME_BYTES = 31
+
+
 class BmapConnection:
     """High-level connection to a BMAP device.
 
@@ -393,8 +397,12 @@ class BmapConnection:
         self._write_mode_from_config(config.mode_idx, config, **overrides)
 
     def set_name(self, new_name):
-        """Set device Bluetooth name (any UTF-8 string)."""
-        self._setget("product_name", new_name.encode("utf-8"))
+        """Set device Bluetooth name (UTF-8, at most MAX_NAME_BYTES bytes)."""
+        data = new_name.encode("utf-8")
+        if len(data) > MAX_NAME_BYTES:
+            raise ValueError(
+                "Name must be at most %d bytes of UTF-8" % MAX_NAME_BYTES)
+        self._setget("product_name", data)
 
     def set_sidetone(self, level):
         """Set sidetone level ("off", "low", "medium", or "high")."""

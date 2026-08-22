@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <cassert>
+#include <stdexcept>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -79,7 +80,9 @@ inline std::vector<uint8_t> bmap_packet(uint8_t fblock, uint8_t func,
     pkt.push_back(fblock);
     pkt.push_back(func);
     pkt.push_back(static_cast<uint8_t>(op) & 0x0F);
-    assert(payload.size() <= 255 && "BMAP payload exceeds single-byte length field");
+    if (payload.size() > 255) {
+        throw std::length_error("BMAP payload exceeds single-byte length field");
+    }
     pkt.push_back(static_cast<uint8_t>(payload.size()));
     pkt.insert(pkt.end(), payload.begin(), payload.end());
     return pkt;

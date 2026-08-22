@@ -100,6 +100,20 @@ TEST(qc35_no_eq) {
     ASSERT_FALSE(dev.has_feature("mode_config"));
 }
 
+TEST(set_name_rejects_long_name) {
+    bool threw = false;
+    try { mock_qc_ultra2()->set_name(std::string(32, 'x')); }
+    catch (const std::invalid_argument&) { threw = true; }
+    ASSERT_TRUE(threw);
+}
+
+TEST(bmap_packet_rejects_oversized_payload) {
+    bool threw = false;
+    try { bmap_packet(1, 2, Operator::SetGet, std::vector<uint8_t>(256, 0)); }
+    catch (const std::length_error&) { threw = true; }
+    ASSERT_TRUE(threw);
+}
+
 TEST(unsupported_feature_throws) {
     auto t = std::make_unique<MockTransport>();
     BmapConnection dev(std::move(t), qc35());

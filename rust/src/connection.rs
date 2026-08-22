@@ -7,6 +7,9 @@ use crate::protocol::{Operator, BmapResponse, bmap_packet, parse_response, parse
 use crate::transport::Transport;
 
 /// High-level connection to a BMAP device.
+/// The device name field is 32 bytes on every BMAP device seen so far.
+pub const MAX_NAME_BYTES: usize = 31;
+
 pub struct BmapConnection<T: Transport> {
     transport: T,
     config: DeviceConfig,
@@ -438,6 +441,10 @@ impl<T: Transport> BmapConnection<T> {
 
     /// Set device name.
     pub fn set_name(&self, name: &str) -> BmapResult<()> {
+        if name.len() > MAX_NAME_BYTES {
+            return Err(BmapError::InvalidArg(format!(
+                "Name must be at most {} bytes of UTF-8", MAX_NAME_BYTES)));
+        }
         let addr = self.addr(self.config.product_name)?;
         self.setget(addr, name.as_bytes())?;
         Ok(())
@@ -765,6 +772,12 @@ mod tests {
             Err(BmapError::Auth(_)) => (),
             other => panic!("Expected Auth error, got {:?}", other),
         }
+    }
+
+    #[test]
+    fn test_set_name_rejects_long_name() {
+        let dev = BmapConnection::new(MockTransport::new(), devices::qc_ultra2());
+        assert!(dev.set_name(&"x".repeat(32)).is_err());
     }
 
     #[test]

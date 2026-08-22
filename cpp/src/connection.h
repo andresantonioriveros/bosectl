@@ -13,6 +13,9 @@
 
 namespace bmap {
 
+/// The device name field is 32 bytes on every BMAP device seen so far.
+inline constexpr size_t MAX_NAME_BYTES = 31;
+
 class BmapConnection {
 public:
     BmapConnection(std::unique_ptr<Transport> transport, DeviceConfig config)
@@ -172,6 +175,10 @@ public:
     }
 
     void set_name(const std::string& new_name) {
+        if (new_name.size() > MAX_NAME_BYTES) {
+            throw std::invalid_argument("Name must be at most " +
+                std::to_string(MAX_NAME_BYTES) + " bytes of UTF-8");
+        }
         std::vector<uint8_t> payload(new_name.begin(), new_name.end());
         setget(require(config_.product_name, "product_name"), payload);
     }
