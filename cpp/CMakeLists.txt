@@ -27,10 +27,21 @@ endif()
 # CLI
 add_executable(bmapctl src/main.cpp)
 target_compile_definitions(bmapctl PRIVATE GIT_HASH="${GIT_HASH}" BMAP_VERSION="${PROJECT_VERSION}")
-target_link_libraries(bmapctl PRIVATE bmap bluetooth)
+if(APPLE)
+    target_link_libraries(bmapctl PRIVATE bmap)
+else()
+    target_link_libraries(bmapctl PRIVATE bmap bluetooth)
+endif()
 
 # Tests
 enable_testing()
-add_executable(bmap_tests tests/test_main.cpp tests/test_protocol.cpp tests/test_parsers.cpp tests/test_connection.cpp tests/test_catalog.cpp)
+add_executable(bmap_tests
+    tests/test_main.cpp
+    tests/test_protocol.cpp
+    tests/test_parsers.cpp
+    tests/test_connection.cpp
+    tests/test_catalog.cpp
+    tests/test_transport.cpp
+)
 target_link_libraries(bmap_tests PRIVATE bmap)
 add_test(NAME bmap_tests COMMAND bmap_tests)

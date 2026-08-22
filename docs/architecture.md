@@ -103,6 +103,18 @@ The drain interface differs slightly by language: Python uses a boolean
 parameter (`send_recv(packet, drain=True)`), while Rust and C++ have a
 separate method (`send_recv_drain(packet)`).
 
+**Platform support:**
+
+| Platform | Python | Rust | C++ |
+|---|---|---|---|
+| Linux | BlueZ `AF_BLUETOOTH` socket | BlueZ socket | BlueZ socket |
+| macOS | IOBluetooth RFCOMM via PyObjC | compiles; connect returns an error pointing at the Python CLI | same as Rust |
+
+`RfcommTransport` in Python is bound at import time to either
+`LinuxRfcommTransport` or `MacOsRfcommTransport` on `sys.platform`; callers
+see one class. Discovery follows the same split (`bluetoothctl` on Linux,
+`IOBluetoothDevice.pairedDevices()` on macOS).
+
 ### Device Config
 
 A data-only description of a specific headphone model. No logic — just addresses,
@@ -425,8 +437,9 @@ BmapError
 └── BmapNotFoundError     — no device found during discovery
 ```
 
-**Transport** uses Python's `socket` module with `AF_BLUETOOTH`.
-No abstraction layer — `RfcommTransport` is a concrete class.
+**Transport** uses Python's `socket` module with `AF_BLUETOOTH` on Linux
+and IOBluetooth (PyObjC) on macOS. `RfcommTransport` is an alias for the
+platform class chosen at import time.
 
 **Testing**: `pytest` with real-capture test data. No transport mock in
 parser tests (parsers are pure functions). Connection tests use a
