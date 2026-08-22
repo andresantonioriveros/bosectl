@@ -99,3 +99,15 @@ fn detect_device_type(info: &str) -> String {
     }
     "qc_ultra2".to_string()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn test_macos_discovery_returns_none() {
+        let dev = find_bmap_device();
+        assert!(dev.is_none());
+    }
+}

@@ -196,4 +196,11 @@ mod tests {
         assert!(parse_mac("AA:BB:CC").is_err());
         assert!(parse_mac("GG:HH:II:JJ:KK:LL").is_err());
     }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn test_macos_transport_fails() {
+        let res = RfcommTransport::connect("00:11:22:33:44:55", 2);
+        assert!(res.is_err());
+    }
 }

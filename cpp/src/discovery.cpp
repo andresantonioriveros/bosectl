@@ -2,6 +2,7 @@
 #include "discovery.h"
 #include "catalog.h"
 
+#ifndef __APPLE__
 #include <array>
 #include <cstdio>
 #include <memory>
@@ -72,3 +73,12 @@ std::optional<std::pair<std::string, std::string>> find_bmap_device() {
 }
 
 } // namespace bmap
+#else // __APPLE__
+namespace bmap {
+
+std::optional<std::pair<std::string, std::string>> find_bmap_device() {
+    return std::nullopt;
+}
+
+} // namespace bmap
+#endif

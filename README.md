@@ -6,9 +6,9 @@
 [![Python 3](https://img.shields.io/badge/Python-3-3572A5.svg)](python/)
 [![Rust](https://img.shields.io/badge/Rust-1.70+-DEA584.svg)](rust/)
 [![C++17](https://img.shields.io/badge/C++-17-f34b7d.svg)](cpp/)
-[![Platform: Linux](https://img.shields.io/badge/Platform-Linux-orange.svg)](https://kernel.org)
+[![Platform: Linux / macOS](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS-blue.svg)](#)
 
-**Control Bose headphones from Linux — no app, no cloud, no account.**
+**Control Bose headphones from Linux and macOS — no app, no cloud, no account.**
 
 ![bosectl CLI](docs/media/screenshot.png)
 
@@ -23,10 +23,10 @@ connection to the headphones.
 
 ## Supported Devices
 
-| Device | NC Control | EQ | Spatial | Profiles | Buttons | Status |
-|--------|-----------|-----|---------|----------|---------|--------|
-| **QC Ultra Headphones 2** | CNC 0-10 slider | 3-band | room/head | 7 custom slots | Shortcut remap | Verified |
-| **QuietComfort 35 / 35 II** | ANR off/high/wind/low | — | — | — | Action remap (VPA/ANC) | Verified |
+| Device                      | NC Control            | EQ     | Spatial   | Profiles       | Buttons                | Status   |
+| --------------------------- | --------------------- | ------ | --------- | -------------- | ---------------------- | -------- |
+| **QC Ultra Headphones 2**   | CNC 0-10 slider       | 3-band | room/head | 7 custom slots | Shortcut remap         | Verified |
+| **QuietComfort 35 / 35 II** | ANR off/high/wind/low | —      | —         | —              | Action remap (VPA/ANC) | Verified |
 
 ### Device Roadmap
 
@@ -34,17 +34,17 @@ The library includes a [device catalog](docs/architecture.md#device-catalog)
 of all known BMAP-capable Bose products. These are recognized by Bluetooth
 product ID but don't have tested configurations yet — contributions welcome:
 
-| Device | Codename | Category | PID |
-|--------|----------|----------|-----|
-| Noise Cancelling Headphones 700 | goodyear | Headphones | `0x4024` |
-| QuietComfort 45 | duran | Headphones | `0x4039` |
-| QuietComfort Headphones | prince | Headphones | `0x4075` |
-| QuietComfort Ultra Headphones | lonestarr | Headphones | `0x4066` |
-| QuietComfort Earbuds II | smalls | Earbuds | `0x4064` |
-| QuietComfort Ultra Earbuds | scotty | Earbuds | `0x4072` |
-| Ultra Open Earbuds | serena | Earbuds | `0x4068` |
-| SoundLink Flex | phelps | Speaker | `0xBC59` |
-| SoundLink Flex 2 | mathers | Speaker | `0xBC61` |
+| Device                          | Codename  | Category   | PID      |
+| ------------------------------- | --------- | ---------- | -------- |
+| Noise Cancelling Headphones 700 | goodyear  | Headphones | `0x4024` |
+| QuietComfort 45                 | duran     | Headphones | `0x4039` |
+| QuietComfort Headphones         | prince    | Headphones | `0x4075` |
+| QuietComfort Ultra Headphones   | lonestarr | Headphones | `0x4066` |
+| QuietComfort Earbuds II         | smalls    | Earbuds    | `0x4064` |
+| QuietComfort Ultra Earbuds      | scotty    | Earbuds    | `0x4072` |
+| Ultra Open Earbuds              | serena    | Earbuds    | `0x4068` |
+| SoundLink Flex                  | phelps    | Speaker    | `0xBC59` |
+| SoundLink Flex 2                | mathers   | Speaker    | `0xBC61` |
 
 Adding a new device is a configuration entry — no library code changes needed.
 See [Adding a New Device](docs/architecture.md#adding-a-new-device).
@@ -120,11 +120,29 @@ pybmap.known_devices()       # full catalog
 
 ### Prerequisites
 
+#### Linux
+
 - **Linux** with BlueZ (standard Bluetooth stack)
 - **Bluetooth** adapter (built-in or USB)
 - **Bose headphones** paired via `bluetoothctl`
 
-### From Release Binaries
+#### macOS
+
+- **macOS** 10.15+
+- **Bluetooth** enabled in System Settings
+- **Bose headphones** paired/connected via System Settings
+
+### Installation (macOS & Linux Python CLI)
+
+Run the included installer to set up dependencies (such as PyObjC on macOS) and symlink `bosectl` globally:
+
+```bash
+git clone https://github.com/aaronsb/bosectl.git
+cd bosectl
+./macOS_install.sh
+```
+
+### From Release Binaries (Linux)
 
 ```bash
 # Download from GitHub releases
@@ -140,7 +158,7 @@ sudo cp bmapctl-rust-linux-x86_64 /usr/local/bin/bmapctl
 ```bash
 git clone https://github.com/aaronsb/bosectl.git
 cd bosectl
-make test          # Run all tests (Python + Rust + C++)
+make test          # Run all tests (Python + Rust + C++; automatically installs macOS test deps and handles missing toolchains)
 make artifacts     # Build release binaries + SHA256SUMS
 ```
 
@@ -217,7 +235,7 @@ Full protocol reference: **[NOTES.md](NOTES.md)**
 ## Building & Releasing
 
 ```bash
-make test                       # All tests (119 Python, 59 Rust, 51 C++)
+make test                       # All tests (121 Python, 63 Rust, 54 C++)
 make artifacts                  # Build + strip + SHA256SUMS in dist/
 make release VERSION=v0.2.0     # Test → build → gh release create
 make clean                      # Remove all build artifacts
