@@ -38,7 +38,7 @@ pub const CATALOG: &[BoseDevice] = &[
     BoseDevice { product_id: 0x4021, codename: "atlas",      name: "ProFlight",                              category: Category::Headphones, config: None },
     BoseDevice { product_id: 0x4024, codename: "goodyear",   name: "Noise Cancelling Headphones 700",        category: Category::Headphones, config: None },
     BoseDevice { product_id: 0x402B, codename: "beanie",     name: "Hearphones II",                          category: Category::Headphones, config: None },
-    BoseDevice { product_id: 0x4039, codename: "duran",      name: "QuietComfort 45",                        category: Category::Headphones, config: None },
+    BoseDevice { product_id: 0x4039, codename: "duran",      name: "QuietComfort 45",                        category: Category::Headphones, config: Some("qc45") },
     BoseDevice { product_id: 0x4066, codename: "lonestarr",  name: "QuietComfort Ultra Headphones",          category: Category::Headphones, config: None },
     BoseDevice { product_id: 0x4075, codename: "prince",     name: "QuietComfort Headphones",                category: Category::Headphones, config: Some("qc_prince") },
     BoseDevice { product_id: 0x4082, codename: "wolverine",  name: "QuietComfort Ultra Headphones (2nd Gen)", category: Category::Headphones, config: Some("qc_ultra2") },
@@ -49,7 +49,7 @@ pub const CATALOG: &[BoseDevice] = &[
     BoseDevice { product_id: 0x4018, codename: "levi",       name: "SoundSport Free",                        category: Category::Earbuds, config: None },
     BoseDevice { product_id: 0x402C, codename: "celine",     name: "Frames",                                 category: Category::Earbuds, config: None },
     BoseDevice { product_id: 0x402D, codename: "revel",      name: "Sport Earbuds",                          category: Category::Earbuds, config: None },
-    BoseDevice { product_id: 0x402F, codename: "lando",      name: "QuietComfort Earbuds",                   category: Category::Earbuds, config: None },
+    BoseDevice { product_id: 0x402F, codename: "lando",      name: "QuietComfort Earbuds",                   category: Category::Earbuds, config: Some("qc_earbuds") },
     BoseDevice { product_id: 0x403A, codename: "gwen",       name: "Sport Open Earbuds",                     category: Category::Earbuds, config: None },
     BoseDevice { product_id: 0x404C, codename: "celine_ii",  name: "Frames (2nd Gen)",                       category: Category::Earbuds, config: None },
     BoseDevice { product_id: 0x4060, codename: "olivia",     name: "Frames Tempo",                           category: Category::Earbuds, config: None },
@@ -150,6 +150,8 @@ mod tests {
         assert!(is_supported(0x4082)); // wolverine
         assert!(is_supported(0x4062)); // edith
         assert!(is_supported(0x4075)); // prince
+        assert!(is_supported(0x402F)); // lando
+        assert!(is_supported(0x4039)); // duran
         assert!(is_supported(0x4020)); // baywolf
         assert!(is_supported(0x400C)); // wolfcastle
         assert!(!is_supported(0x4024)); // NCH 700, no config

@@ -1,9 +1,13 @@
 """Bose QC45 device configuration.
 
-Codename "duran", product ID 0x4039, firmware 4.0.4.
+Codename "duran", product ID 0x4039, CSR8670 platform.
 RFCOMM channel 8, requires INIT_PACKET (0,1) before responding.
 
-Capabilities verified against real hardware:
+Layout inferred from the Bose app's BMAP tables (#21); unverified on
+hardware. The 47-byte STATUS / 39-byte SETGET ModeConfig format is shared
+with QuietComfort Headphones (prince), whose parsers this module reuses.
+
+Capabilities expected from the APK tables:
   - Battery, firmware, serial, product name: GET works
   - Device name, sidetone, voice prompts: GET + SETGET works
   - Buttons: GET + SETGET works (Shortcut button with SwitchDevice action)
@@ -108,13 +112,4 @@ MODE_BY_IDX = {m["idx"]: name for name, m in PRESET_MODES.items()}
 
 EDITABLE_SLOTS = [2, 3]
 
-STATUS_OFFSETS = {
-    "prompt_b1": 1,
-    "prompt_b2": 2,
-    "editable": 3,
-    "configured": 4,
-    "cnc_level": 42,
-    "auto_cnc": 43,
-    "spatial": 44,
-    "wind_block": 45,
-}
+# STATUS offsets live in parsers.parse_mode_config_47 (shared with prince).

@@ -123,6 +123,41 @@ TEST(error_response_throws) {
     ASSERT_TRUE(threw);
 }
 
+TEST(qc_earbuds_set_cnc_uses_direct_setget) {
+    auto raw = new MockTransport();
+    raw->add(1, 5, 0x03, {0x0b, 0x04, 0x01});
+    MockTransport* view = raw;
+    BmapConnection dev(std::unique_ptr<Transport>(raw), qc_earbuds());
+
+    dev.set_cnc(4);
+
+    std::vector<uint8_t> expect = {1, 5, 0x02, 2, 4, 1};
+    ASSERT_TRUE(view->sent.back() == expect);
+}
+
+TEST(qc45_set_cnc_writes_39_byte_mode_config) {
+    std::vector<uint8_t> music = {
+        0x03,0x00,0x00,0x01,0x01,0x00,0x4d,0x75,0x73,0x69,0x63,0x00,0x00,0x00,0x00,0x00,
+        0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+        0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x05,0x00,0x00,0x00,0x00,
+    };
+    auto raw = new MockTransport();
+    raw->add(31, 3, 0x03, {3});
+    std::vector<uint8_t> get_all = {31, 6, 0x03, static_cast<uint8_t>(music.size())};
+    get_all.insert(get_all.end(), music.begin(), music.end());
+    raw->responses[{31, 1}] = get_all;
+    raw->add(31, 6, 0x03, music);
+    MockTransport* view = raw;
+    BmapConnection dev(std::unique_ptr<Transport>(raw), qc45());
+
+    dev.set_cnc(7);
+
+    auto last = view->sent.back();
+    ASSERT_EQ(last[3], 39);
+    ASSERT_EQ(last[4], 3);
+    ASSERT_EQ(last[4 + 35], 7);
+}
+
 TEST(prince_set_wind_uses_mode_config_fallback) {
     std::vector<uint8_t> music = {
         0x03,0x00,0x0c,0x01,0x01,0x00,0x4d,0x75,0x73,0x69,0x63,0x00,0x00,0x00,0x00,0x00,

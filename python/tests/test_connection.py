@@ -236,3 +236,41 @@ class TestUnknownDevice:
         from pybmap.devices import get_device
         with pytest.raises(BmapError, match="Unknown device type"):
             get_device("nonexistent")
+
+
+class TestQc45Connection:
+    """Cross the connection seam for QC45 — the gap #21's review found."""
+
+    # 47-byte STATUS: idx 3, editable+configured, name "Music", cnc 5 at [42]
+    MUSIC_MODE = (
+        bytes([3, 0, 0, 1, 1, 0]) + b"Music".ljust(32, b"\x00")
+        + bytes([0, 0, 0, 0, 5, 0, 0, 0, 0])
+    )
+
+    def _dev(self):
+        from pybmap.devices import qc45
+        transport = MockTransport()
+        transport.add_response(31, 3, OP_STATUS, bytes([3]))
+        transport.responses[(31, 1)] = (
+            bytes([31, 6, OP_STATUS, len(self.MUSIC_MODE)]) + self.MUSIC_MODE
+        )
+        transport.add_response(31, 6, OP_STATUS, self.MUSIC_MODE)
+        return transport, BmapConnection(transport, qc45)
+
+    def test_set_cnc_writes_39_byte_mode_config(self):
+        transport, dev = self._dev()
+        dev.set_cnc(7)
+        sent = transport.sent[-1]
+        assert sent[:4] == bytes([31, 6, OP_SETGET, 39])
+        assert sent[4] == 3          # slot
+        assert sent[4 + 35] == 7     # cnc level, no anc_toggle byte follows
+
+
+class TestQcEarbudsConnection:
+    def test_set_cnc_uses_direct_setget(self):
+        from pybmap.devices import qc_earbuds
+        transport = MockTransport()
+        transport.add_response(1, 5, OP_STATUS, bytes([0x0b, 0x04, 0x01]))
+        dev = BmapConnection(transport, qc_earbuds)
+        dev.set_cnc(4)
+        assert transport.sent[-1] == bytes([1, 5, OP_SETGET, 2, 4, 1])

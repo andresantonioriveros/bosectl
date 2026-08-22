@@ -76,7 +76,7 @@ class TestQC45ModeConfigParser:
         )
 
     def test_parse_quiet_mode(self):
-        # Exact payload from probe: mode 0, Quiet, cnc=0, preset
+        # Synthetic fixture matching the inferred layout: mode 0, Quiet, cnc=0, preset
         payload = bytes.fromhex(
             "0000010000015175696574"
             "000000000000000000000000000000000000000000"
@@ -90,7 +90,7 @@ class TestQC45ModeConfigParser:
         assert config.cnc_level == 0
 
     def test_parse_aware_mode(self):
-        # Exact payload from probe: mode 1, Aware, cnc=10, preset
+        # Synthetic fixture matching the inferred layout: mode 1, Aware, cnc=10, preset
         payload = bytes.fromhex(
             "0100020000014177617265"
             "000000000000000000000000000000000000000000"
@@ -104,7 +104,7 @@ class TestQC45ModeConfigParser:
         assert config.cnc_level == 10
 
     def test_parse_editable_music_mode(self):
-        # Exact payload from probe after SETGET: mode 2, Music, cnc=3, editable
+        # Synthetic fixture matching the inferred layout after SETGET: mode 2, Music, cnc=3, editable
         payload = bytes.fromhex(
             "02000c0101014d75736963"
             "000000000000000000000000000000000000000000"

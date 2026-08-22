@@ -3,7 +3,7 @@
 use crate::device::{
     Addr, DeviceConfig, DeviceInfo, PresetMode,
     build_mode_config_39, build_mode_config_40,
-    parse_mode_config_prince, parse_mode_config_qc_ultra2,
+    parse_mode_config_44, parse_mode_config_prince, parse_mode_config_qc_ultra2,
 };
 
 /// Bose QC Ultra 2 configuration.
@@ -47,6 +47,7 @@ pub fn qc_ultra2() -> DeviceConfig {
         parse_mode_config: Some(parse_mode_config_qc_ultra2),
         build_mode_config: Some(build_mode_config_40),
         supports_anc_toggle: true,
+        cnc_direct_setget: false,
     }
 }
 
@@ -91,6 +92,7 @@ pub fn qc_prince() -> DeviceConfig {
         parse_mode_config: Some(parse_mode_config_prince),
         build_mode_config: Some(build_mode_config_39),
         supports_anc_toggle: false,
+        cnc_direct_setget: false,
     }
 }
 
@@ -137,15 +139,108 @@ pub fn qc35() -> DeviceConfig {
         parse_mode_config: None,
         build_mode_config: None,
         supports_anc_toggle: false,
+        cnc_direct_setget: false,
     }
 }
 
 /// Look up a device config by name.
+/// Bose QuietComfort Earbuds (1st Gen) — codename lando, firmware 2.0.7.
+/// Contributed from hardware on #23. Four fixed modes; ModeConfig SETGET is
+/// non-functional, so CNC is written directly to [1.5].
+pub fn qc_earbuds() -> DeviceConfig {
+    DeviceConfig {
+        info: DeviceInfo {
+            name: "Bose QC Earbuds",
+            codename: "lando",
+            platform: "QCC-384",
+        },
+        rfcomm_channel: 8,
+        init_packet: None,
+        battery: Some(Addr(2, 2)),
+        firmware: Some(Addr(0, 5)),
+        product_name: Some(Addr(1, 2)),
+        voice_prompts: Some(Addr(1, 3)),
+        cnc: Some(Addr(1, 5)),
+        eq: Some(Addr(1, 7)),
+        buttons: Some(Addr(1, 9)),
+        multipoint: Some(Addr(1, 10)),
+        sidetone: Some(Addr(1, 11)),
+        auto_pause: None,
+        auto_answer: None,
+        anr: None,
+        pairing: Some(Addr(4, 8)),
+        routing: Some(Addr(4, 12)),
+        source: Some(Addr(5, 1)),
+        power: Some(Addr(7, 4)),
+        get_all_modes: Some(Addr(31, 1)),
+        current_mode: Some(Addr(31, 3)),
+        mode_config: Some(Addr(31, 6)),
+        favorites: Some(Addr(31, 8)),
+        audio_settings: None,
+        preset_modes: &[
+            ("quiet", PresetMode { idx: 0, description: "Quiet - full ANC" }),
+            ("aware", PresetMode { idx: 1, description: "Aware - transparency" }),
+        ],
+        editable_slots: &[],
+        parse_mode_config: Some(parse_mode_config_44),
+        build_mode_config: None,
+        supports_anc_toggle: false,
+        cnc_direct_setget: true,
+    }
+}
+
+/// Bose QuietComfort 45 — codename duran, CSR8670.
+/// Layout inferred from the Bose app (#21); unverified on hardware. Shares
+/// the prince 47/39-byte ModeConfig format. Needs GET [0.1] before responding.
+pub fn qc45() -> DeviceConfig {
+    DeviceConfig {
+        info: DeviceInfo {
+            name: "Bose QuietComfort 45",
+            codename: "duran",
+            platform: "CSR8670",
+        },
+        rfcomm_channel: 8,
+        init_packet: Some(Addr(0, 1)),
+        battery: Some(Addr(2, 2)),
+        firmware: Some(Addr(0, 5)),
+        product_name: Some(Addr(1, 2)),
+        voice_prompts: Some(Addr(1, 3)),
+        cnc: Some(Addr(1, 5)),
+        eq: Some(Addr(1, 7)),
+        buttons: Some(Addr(1, 9)),
+        multipoint: Some(Addr(1, 10)),
+        sidetone: Some(Addr(1, 11)),
+        auto_pause: None,
+        auto_answer: None,
+        anr: None,
+        pairing: Some(Addr(4, 8)),
+        routing: None,
+        source: None,
+        power: None,
+        get_all_modes: Some(Addr(31, 1)),
+        current_mode: Some(Addr(31, 3)),
+        mode_config: Some(Addr(31, 6)),
+        favorites: Some(Addr(31, 8)),
+        audio_settings: None,
+        preset_modes: &[
+            ("quiet", PresetMode { idx: 0, description: "Quiet - full ANC" }),
+            ("aware", PresetMode { idx: 1, description: "Aware - transparency" }),
+        ],
+        editable_slots: &[2, 3],
+        parse_mode_config: Some(parse_mode_config_prince),
+        build_mode_config: Some(build_mode_config_39),
+        supports_anc_toggle: false,
+        cnc_direct_setget: false,
+    }
+}
+
 pub fn get_device(name: &str) -> Option<DeviceConfig> {
     match name {
         "qc_ultra2" => Some(qc_ultra2()),
         "qc35" => Some(qc35()),
         "qc_prince" => Some(qc_prince()),
+        "qc_earbuds" => Some(qc_earbuds()),
+        "qc45" => Some(qc45()),
         _ => None,
     }
 }
@@ -189,6 +284,26 @@ mod tests {
         assert!(get_device("qc_ultra2").is_some());
         assert!(get_device("qc35").is_some());
         assert!(get_device("qc_prince").is_some());
+        assert!(get_device("qc_earbuds").is_some());
+        assert!(get_device("qc45").is_some());
         assert!(get_device("nonexistent").is_none());
+    }
+
+    #[test]
+    fn test_qc_earbuds_direct_cnc_no_profile_editing() {
+        let dev = qc_earbuds();
+        assert!(dev.cnc_direct_setget);
+        assert!(dev.build_mode_config.is_none());
+        assert!(dev.editable_slots.is_empty());
+        assert!(dev.audio_settings.is_none());
+    }
+
+    #[test]
+    fn test_qc45_shares_prince_mode_layout() {
+        let dev = qc45();
+        assert!(matches!(dev.init_packet, Some(Addr(0, 1))));
+        assert!(dev.eq.is_some());
+        assert!(!dev.supports_anc_toggle);
+        assert_eq!(dev.editable_slots, &[2, 3]);
     }
 }

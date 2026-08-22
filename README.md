@@ -28,6 +28,8 @@ connection to the headphones.
 | **QC Ultra Headphones 2**   | CNC 0-10 slider                       | 3-band | room/head      | 7 custom slots        | Shortcut remap         | Verified           |
 | **QuietComfort Headphones** | CNC 0-10 + Wind Block via ModeConfig  | —      | field observed | 2 user slots observed | —                      | Verified (`prince`) |
 | **QuietComfort 35 / 35 II** | ANR off/high/wind/low                 | —      | —              | —                     | Action remap (VPA/ANC) | Verified           |
+| **QuietComfort Earbuds**    | CNC 0-10 via direct SETGET            | 3-band | —              | 4 fixed modes         | Remap                  | Verified (`lando`) |
+| **QuietComfort 45**         | CNC 0-10 via ModeConfig               | 3-band | —              | 2 user slots          | Remap                  | Inferred (`duran`), untested on hardware |
 
 ### Device Roadmap
 
@@ -38,7 +40,6 @@ product ID but don't have tested configurations yet — contributions welcome:
 | Device                          | Codename  | Category   | PID      |
 | ------------------------------- | --------- | ---------- | -------- |
 | Noise Cancelling Headphones 700 | goodyear  | Headphones | `0x4024` |
-| QuietComfort 45                 | duran     | Headphones | `0x4039` |
 | QuietComfort Ultra Headphones   | lonestarr | Headphones | `0x4066` |
 | QuietComfort Earbuds II         | smalls    | Earbuds    | `0x4064` |
 | QuietComfort Ultra Earbuds      | scotty    | Earbuds    | `0x4072` |
