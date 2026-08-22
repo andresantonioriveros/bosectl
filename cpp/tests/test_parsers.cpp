@@ -66,6 +66,17 @@ TEST(build_mode_config_40_length) {
     ASSERT_EQ(p[39], 1);   // anc
 }
 
+TEST(build_mode_config_39_length) {
+    auto p = build_mode_config_39(3, "Music", 5, 0, true, false, 0, 12);
+    ASSERT_EQ(p.size(), 39u);
+    ASSERT_EQ(p[0], 3);
+    ASSERT_EQ(p[1], 0);
+    ASSERT_EQ(p[2], 12);
+    ASSERT_EQ(std::string(p.begin() + 3, p.begin() + 8), "Music");
+    ASSERT_EQ(p[35], 5);
+    ASSERT_EQ(p[38], 1);
+}
+
 TEST(parse_voice_prompts_disabled) {
     auto [on, lang] = parse_voice_prompts({0x01});
     ASSERT_FALSE(on);
@@ -94,4 +105,20 @@ TEST(mode_config_roundtrip_40) {
 TEST(mode_config_too_short) {
     auto mc = parse_mode_config_qc_ultra2({0, 0, 0});
     ASSERT_FALSE(mc.has_value());
+}
+
+TEST(mode_config_prince_capture) {
+    std::vector<uint8_t> payload = {
+        0x03,0x00,0x0c,0x01,0x01,0x00,0x4d,0x75,0x73,0x69,0x63,0x00,0x00,0x00,0x00,0x00,
+        0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+        0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x09,0x05,0x00,0x00,0x00,0x00,
+    };
+    auto mc = parse_mode_config_prince(payload);
+    ASSERT_TRUE(mc.has_value());
+    ASSERT_EQ(mc->mode_idx, 3);
+    ASSERT_EQ(mc->prompt_b2, 12);
+    ASSERT_EQ(mc->name, "Music");
+    ASSERT_EQ(mc->cnc_level, 5);
+    ASSERT_FALSE(mc->wind_block);
+    ASSERT_FALSE(mc->anc_toggle);
 }

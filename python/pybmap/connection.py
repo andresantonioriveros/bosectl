@@ -18,7 +18,7 @@ from .constants import (
 )
 from .protocol import bmap_packet, parse_response, parse_all_responses, fmt_response
 from .errors import BmapError, BmapAuthError, BmapDeviceError
-from .types import DeviceStatus
+from .types import DeviceStatus, AudioSettings
 
 
 class BmapConnection:
@@ -206,6 +206,25 @@ class BmapConnection:
         """
         return self._get("anr")
 
+    def audio_settings(self):
+        """Current audio settings as AudioSettings.
+
+        Newer devices expose this directly at [31.10]. Devices such as
+        QuietComfort Headphones/prince expose the same live CNC/wind fields
+        through the current editable ModeConfig instead.
+        """
+        if self.has_feature("audio_settings"):
+            return self._get("audio_settings")
+
+        config = self._current_mode_config()
+        return AudioSettings(
+            cnc_level=config.cnc_level,
+            auto_cnc=config.auto_cnc,
+            spatial=config.spatial,
+            wind_block=config.wind_block,
+            anc_toggle=config.anc_toggle,
+        )
+
     def prompts(self):
         """Voice prompts (enabled, language_name) tuple."""
         enabled, lang_id = self._get("voice_prompts")
@@ -279,7 +298,9 @@ class BmapConnection:
             idx = found
 
         resp = self._start("current_mode", bytes([idx, 1 if announce else 0]))
-        if resp and resp.op != OP_RESULT:
+        # Some firmware (QC Headphones "prince") acks START [31.3] with
+        # PROCESSING and applies the switch asynchronously.
+        if resp and resp.op not in (OP_RESULT, OP_PROCESSING):
             raise BmapDeviceError("Mode switch failed: %s" % fmt_response(resp))
 
     def set_cnc(self, level):
@@ -336,7 +357,7 @@ class BmapConnection:
         the Bose app writes to. Unauthenticated on QC Ultra 2+.
         """
         if not self.has_feature("audio_settings"):
-            raise BmapError("Device does not support direct audio settings")
+            return self._update_current_mode_config(**overrides)
         settings = self._get("audio_settings")
         feat = self._feature("audio_settings")
         builder = feat["builder"]
@@ -346,6 +367,22 @@ class BmapConnection:
             wind_block=overrides.get("wind_block", settings.wind_block),
             anc_toggle=overrides.get("anc_toggle", settings.anc_toggle),
         ))
+
+    def _update_current_mode_config(self, **overrides):
+        """Fallback live audio update through the current ModeConfig."""
+        if not self.has_feature("mode_config"):
+            raise BmapError("Device does not support direct audio settings")
+
+        if ("anc_toggle" in overrides and
+                not getattr(self._device, "SUPPORTS_ANC_TOGGLE", True)):
+            raise BmapError("Device does not expose an ANC on/off toggle")
+
+        config = self._current_mode_config()
+        if not config.editable:
+            raise BmapError(
+                "Current mode '%s' is not editable on this device" % config.name
+            )
+        self._write_mode_from_config(config.mode_idx, config, **overrides)
 
     def set_name(self, new_name):
         """Set device Bluetooth name (any UTF-8 string)."""
@@ -544,6 +581,14 @@ class BmapConnection:
         # Re-read to get the full config
         modes = self.modes()
         return slot, modes.get(slot)
+
+    def _current_mode_config(self):
+        """Return ModeConfig for the current mode index."""
+        idx = self.mode_idx()
+        modes = self.modes()
+        if idx not in modes:
+            raise BmapError("Current mode config not available")
+        return modes[idx]
 
     def _find_free_slot(self, modes):
         """Find the first unconfigured editable slot."""

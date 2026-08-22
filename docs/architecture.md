@@ -144,17 +144,17 @@ Each feature entry maps a name to its protocol address and codec functions:
 
 **Device quirks are expressed as config differences, not code branches:**
 
-| Property | QC Ultra 2 | QC35 |
-|----------|-----------|------|
-| RFCOMM channel | 2 | 8 |
-| Init packet | None | GET [0.1] required |
-| Noise control | CNC [1.5] (0-10 slider) | ANR [1.6] (off/high/wind/low) |
-| EQ | 3-band [1.7] | Not supported |
-| Spatial audio | [31.6] ModeConfig | Not supported |
-| Mode profiles | 7 editable slots (4-10) | None |
-| Sidetone | [1.11] | [1.11] |
-| Multipoint | [1.10] | Not supported |
-| Button remap | Shortcut (0x80) | Action (0x10) |
+| Property | QC Ultra 2 | QuietComfort Headphones (`prince`) | QC35 |
+|----------|-----------|-------------------------------------|------|
+| RFCOMM channel | 2 | 8 | 8 |
+| Init packet | None | None | GET [0.1] required |
+| Noise control | CNC [1.5] / live [31.10] | CNC/wind via [31.6] ModeConfig | ANR [1.6] (off/high/wind/low) |
+| EQ | 3-band [1.7] | Not verified | Not supported |
+| Spatial audio | [31.6] ModeConfig | Field observed in [31.6] | Not supported |
+| Mode profiles | 7 editable slots (4-10) | 2 editable slots observed (2-3) | None |
+| Sidetone | [1.11] | Not verified | [1.11] |
+| Multipoint | [1.10] | Not verified | Not supported |
+| Button remap | Shortcut (0x80) | Not verified | Action (0x10) |
 
 ### BmapConnection
 
@@ -218,6 +218,7 @@ build_anr("high")                         →  bytes([0x01])
 build_sidetone(2)                         →  bytes([0x01, 0x02])
 build_buttons(0x10, 4, 2)                 →  bytes([0x10, 0x04, 0x02])
 build_mode_config_40(5, "Custom", cnc_level=8)  →  40-byte payload
+build_mode_config_39(3, "Music", cnc_level=5)   →  39-byte payload
 ```
 
 Builders accept both integer IDs and string names where applicable
@@ -313,10 +314,10 @@ Bose's firmware manifest at `downloads.bose.com/lookup.xml`.
 
 ```mermaid
 graph TD
-    CAT[Device Catalog<br/>14 known BMAP devices] --> SUP[Supported<br/>config ≠ None]
+    CAT[Device Catalog<br/>known BMAP devices] --> SUP[Supported<br/>config ≠ None]
     CAT --> UNSUP[Recognized but Unsupported<br/>config = None]
     SUP --> DISC[Discovery<br/>PID → config lookup]
-    SUP --> CFG[Device Configs<br/>qc_ultra2, qc35]
+    SUP --> CFG[Device Configs<br/>qc_ultra2, qc_prince, qc35]
     DISC --> CONN[connect&#40;&#41;]
     CFG --> CONN
 
@@ -342,8 +343,9 @@ Each catalog entry carries:
 
 ```
 lookup_device(0x4082)    → BoseDevice{wolverine, "QuietComfort Ultra Headphones (2nd Gen)", config="qc_ultra2"}
+lookup_device(0x4075)    → BoseDevice{prince, "QuietComfort Headphones", config="qc_prince"}
 is_supported(0x4024)     → False (NCH 700: recognized, no config yet)
-supported_devices()      → [wolfcastle, baywolf, edith, wolverine]
+supported_devices()      → [wolfcastle, baywolf, edith, prince, wolverine]
 known_devices()          → full catalog
 usb_ids(0x4082)          → (0x05A7, 0x4082)
 modalias(0x4082)         → "bluetooth:v05A7p4082d0000"
@@ -367,6 +369,7 @@ a default config since they don't have a tested implementation yet.
 | `0x400C` | wolfcastle | QuietComfort 35 | `qc35` |
 | `0x4020` | baywolf | QuietComfort 35 II | `qc35` |
 | `0x4062` | edith | QuietComfort Ultra Earbuds (2nd Gen) | `qc_ultra2` |
+| `0x4075` | prince | QuietComfort Headphones | `qc_prince` |
 | `0x4082` | wolverine | QuietComfort Ultra Headphones (2nd Gen) | `qc_ultra2` |
 
 ### Known Unsupported (Future Targets)
@@ -380,16 +383,17 @@ implemented.
 To add support for a new Bose device:
 
 1. **Add to the catalog** — add its PID, codename, and name with `config=None`
-2. **Discover the RFCOMM channel** — try channels 2 and 8
+2. **Discover the RFCOMM channel** — `connect()` tries the config's channel, then probes 2, 8, 9 with a firmware GET (`FALLBACK_CHANNELS`); set `RFCOMM_CHANNEL` to whichever answers on your unit
 3. **Check if an init packet is needed** — send GET [0.1] and see if subsequent commands work
 4. **Probe features** — GET on known function addresses to see what responds
 5. **Create a device config** with the discovered addresses and parsers
 6. **Register in the device registry** — add to `get_device()` / `DEVICES`
 7. **Set config in catalog** — change `None` to the new config key
 
-No changes to `BmapConnection` or the transport layer should be needed.
 Device-specific parsing (e.g. different ModeConfig layouts) is handled by
-assigning a different parser function in the config.
+assigning different parser and builder functions in the config. Some devices
+may still need a shared connection fallback when a newer direct-control
+feature is absent.
 
 ---
 
@@ -415,6 +419,7 @@ pybmap/
     ├── __init__.py      # Device registry (DEVICES dict, get_device())
     ├── parsers.py       # Shared parser/builder functions
     ├── qc_ultra2.py     # QC Ultra 2 config (module-level constants)
+    ├── qc_prince.py     # QuietComfort Headphones / prince config
     └── qc35.py          # QC35 config (module-level constants)
 ```
 

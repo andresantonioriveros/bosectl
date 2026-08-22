@@ -4,7 +4,8 @@ from pybmap.devices.parsers import (
     parse_battery, parse_firmware, parse_product_name, parse_cnc,
     parse_eq, parse_buttons, parse_multipoint, parse_bool,
     parse_sidetone, parse_voice_prompts,
-    parse_mode_config_48, build_mode_config_40,
+    parse_mode_config_48, parse_mode_config_47,
+    build_mode_config_40, build_mode_config_39,
     build_eq_band, build_toggle, build_sidetone, build_voice_prompts,
     build_buttons,
 )
@@ -245,6 +246,34 @@ class TestBuildModeConfig:
         assert config.wind_block is True
         assert config.anc_toggle is True
 
+    def test_prince_payload_length(self):
+        payload = build_mode_config_39(
+            mode_idx=3, name="Music", cnc_level=5,
+            spatial=0, wind_block=1, prompt_b1=0, prompt_b2=12,
+        )
+        assert len(payload) == 39
+        assert payload[0] == 3
+        assert payload[1] == 0
+        assert payload[2] == 12
+        assert payload[3:8] == b"Music"
+        assert payload[35] == 5
+        assert payload[36] == 0
+        assert payload[37] == 0
+        assert payload[38] == 1
+
+    def test_prince_roundtrip_39(self):
+        payload = build_mode_config_39(
+            mode_idx=2, name="Commute", cnc_level=0,
+            spatial=0, wind_block=1, prompt_b1=0, prompt_b2=7,
+        )
+        config = parse_mode_config_47(payload)
+        assert config is not None
+        assert config.mode_idx == 2
+        assert config.name == "Commute"
+        assert config.cnc_level == 0
+        assert config.wind_block is True
+        assert config.anc_toggle is False
+
 
 class TestParseModeConfig48:
     def test_too_short(self):
@@ -256,6 +285,39 @@ class TestParseModeConfig48:
         config = parse_mode_config_48(payload)
         assert config is not None
         assert config.mode_idx == 5
+
+
+class TestParseModeConfig47:
+    def test_from_prince_music_capture(self):
+        payload = bytes.fromhex(
+            "03000c0101004d757369630000000000000000000000000000000000"
+            "00000000000000000000000000090500000000"
+        )
+        config = parse_mode_config_47(payload)
+        assert config is not None
+        assert config.mode_idx == 3
+        assert config.prompt_bytes == (0, 12)
+        assert config.name == "Music"
+        assert config.editable is True
+        assert config.configured is True
+        assert config.cnc_level == 5
+        assert config.auto_cnc is False
+        assert config.spatial == 0
+        assert config.wind_block is False
+        assert config.anc_toggle is False
+
+    def test_from_prince_commute_capture(self):
+        payload = bytes.fromhex(
+            "020007010100436f6d6d757465000000000000000000000000000000"
+            "00000000000000000000000000090000000001"
+        )
+        config = parse_mode_config_47(payload)
+        assert config is not None
+        assert config.mode_idx == 2
+        assert config.prompt_bytes == (0, 7)
+        assert config.name == "Commute"
+        assert config.cnc_level == 0
+        assert config.wind_block is True
 
 
 # ── Builder Tests ────────────────────────────────────────────────────────────

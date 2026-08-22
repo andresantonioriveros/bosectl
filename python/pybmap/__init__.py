@@ -64,13 +64,55 @@ def connect(mac=None, device_type=None):
 
     device = get_device(device_type)
     channel = getattr(device, "RFCOMM_CHANNEL", 2)
-    transport = RfcommTransport(mac, channel=channel)
-    transport.connect()
-
-    # Some devices require an init packet before responding.
-    init = getattr(device, "INIT_PACKET", None)
-    if init:
-        fblock, func = init
-        transport.send_recv(bmap_packet(fblock, func, 1))  # GET
-
+    transport = _open_transport(mac, channel, device)
     return BmapConnection(transport, device)
+
+
+# RFCOMM channels BMAP has been observed on. The channel a unit exposes can
+# vary with firmware and with which profiles bluetoothd has already claimed,
+# so the device's configured channel is a first guess rather than a fact.
+FALLBACK_CHANNELS = (2, 8, 9)
+
+
+def _open_transport(mac, channel, device):
+    """Connect on the configured channel, then probe fallbacks.
+
+    A socket that accepts the connection is not proof of BMAP — several
+    channels accept and stay silent — so each candidate is confirmed with a
+    firmware GET [0.5] before it is returned.
+    """
+    init = getattr(device, "INIT_PACKET", None)
+    candidates = [channel] + [c for c in FALLBACK_CHANNELS if c != channel]
+    first_error = None
+    for i, ch in enumerate(candidates):
+        transport = RfcommTransport(mac, channel=ch)
+        try:
+            transport.connect()
+        except BmapConnectionError as e:
+            first_error = first_error or e
+            continue
+        if i == 0:
+            # Configured channel connected: trust it, send init if needed.
+            if init:
+                fblock, func = init
+                transport.send_recv(bmap_packet(fblock, func, 1))  # GET
+            return transport
+        if _speaks_bmap(transport, init):
+            return transport
+        transport.close()
+    raise BmapConnectionError(
+        "No BMAP channel found on %s (tried %s): %s"
+        % (mac, ", ".join(str(c) for c in candidates), first_error)
+    )
+
+
+def _speaks_bmap(transport, init):
+    """Send a firmware GET and return True on any parseable BMAP reply."""
+    try:
+        if init:
+            fblock, func = init
+            transport.send_recv(bmap_packet(fblock, func, 1))
+        data = transport.send_recv(bmap_packet(0, 5, 1))  # GET firmware
+    except BmapError:
+        return False
+    return parse_response(data) is not None

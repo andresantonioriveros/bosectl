@@ -1,6 +1,10 @@
 //! Device configurations.
 
-use crate::device::{Addr, DeviceConfig, DeviceInfo, PresetMode, parse_mode_config_qc_ultra2};
+use crate::device::{
+    Addr, DeviceConfig, DeviceInfo, PresetMode,
+    build_mode_config_39, build_mode_config_40,
+    parse_mode_config_prince, parse_mode_config_qc_ultra2,
+};
 
 /// Bose QC Ultra 2 configuration.
 pub fn qc_ultra2() -> DeviceConfig {
@@ -41,6 +45,52 @@ pub fn qc_ultra2() -> DeviceConfig {
         ],
         editable_slots: &[4, 5, 6, 7, 8, 9, 10],
         parse_mode_config: Some(parse_mode_config_qc_ultra2),
+        build_mode_config: Some(build_mode_config_40),
+        supports_anc_toggle: true,
+    }
+}
+
+/// Bose QuietComfort Headphones configuration -- prince, product ID 0x4075.
+/// Verified against firmware 1.0.6-80+f5f219b.
+/// BMAP over RFCOMM channel 8 with 47-byte ModeConfig STATUS responses.
+pub fn qc_prince() -> DeviceConfig {
+    DeviceConfig {
+        info: DeviceInfo {
+            name: "Bose QuietComfort Headphones",
+            codename: "prince",
+            platform: "Unknown",
+        },
+        rfcomm_channel: 8,
+        init_packet: None,
+        battery: Some(Addr(2, 2)),
+        firmware: Some(Addr(0, 5)),
+        product_name: Some(Addr(1, 2)),
+        voice_prompts: Some(Addr(1, 3)),
+        cnc: Some(Addr(1, 5)),
+        eq: None,
+        buttons: None,
+        multipoint: None,
+        sidetone: None,
+        auto_pause: None,
+        auto_answer: None,
+        anr: None,
+        pairing: Some(Addr(4, 8)),
+        routing: None,
+        source: None,
+        power: None,
+        get_all_modes: Some(Addr(31, 1)),
+        current_mode: Some(Addr(31, 3)),
+        mode_config: Some(Addr(31, 6)),
+        favorites: None,
+        audio_settings: None,
+        preset_modes: &[
+            ("quiet", PresetMode { idx: 0, description: "Quiet - full ANC" }),
+            ("aware", PresetMode { idx: 1, description: "Aware - transparency" }),
+        ],
+        editable_slots: &[2, 3],
+        parse_mode_config: Some(parse_mode_config_prince),
+        build_mode_config: Some(build_mode_config_39),
+        supports_anc_toggle: false,
     }
 }
 
@@ -85,6 +135,8 @@ pub fn qc35() -> DeviceConfig {
         ],
         editable_slots: &[],
         parse_mode_config: None,
+        build_mode_config: None,
+        supports_anc_toggle: false,
     }
 }
 
@@ -93,6 +145,7 @@ pub fn get_device(name: &str) -> Option<DeviceConfig> {
     match name {
         "qc_ultra2" => Some(qc_ultra2()),
         "qc35" => Some(qc35()),
+        "qc_prince" => Some(qc_prince()),
         _ => None,
     }
 }
@@ -109,6 +162,18 @@ mod tests {
         assert!(dev.mode_config.is_some());
         assert_eq!(dev.preset_modes.len(), 4);
         assert_eq!(dev.editable_slots.len(), 7);
+        assert!(dev.build_mode_config.is_some());
+    }
+
+    #[test]
+    fn test_qc_prince_channel_and_mode_layout() {
+        let dev = qc_prince();
+        assert_eq!(dev.info.codename, "prince");
+        assert_eq!(dev.rfcomm_channel, 8);
+        assert!(dev.mode_config.is_some());
+        assert!(dev.audio_settings.is_none());
+        assert!(!dev.supports_anc_toggle);
+        assert_eq!(dev.editable_slots, &[2, 3]);
     }
 
     #[test]
@@ -123,6 +188,7 @@ mod tests {
     fn test_get_device() {
         assert!(get_device("qc_ultra2").is_some());
         assert!(get_device("qc35").is_some());
+        assert!(get_device("qc_prince").is_some());
         assert!(get_device("nonexistent").is_none());
     }
 }

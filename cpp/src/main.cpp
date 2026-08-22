@@ -30,7 +30,7 @@ static void usage() {
               << "  off                 Power off\n\n"
               << "Environment:\n"
               << "  BMAP_MAC=XX:XX:XX:XX:XX:XX   Device MAC\n"
-              << "  BMAP_DEVICE=qc_ultra2         Device type\n";
+              << "  BMAP_DEVICE=qc_ultra2|qc_prince|qc35   Device type\n";
 }
 
 static bool is_on(const std::string& s) {
@@ -118,8 +118,12 @@ int main(int argc, char** argv) {
                 std::string v = argv[2];
                 dev.set_anc(v == "on" || v == "1" || v == "true");
             }
-            auto s = dev.audio_settings();
-            std::cout << (s[4] ? "on" : "off") << "\n";
+            if (!dev.config().audio_settings && !dev.config().supports_anc_toggle) {
+                std::cout << "unsupported\n";
+            } else {
+                auto s = dev.audio_settings();
+                std::cout << (s[4] ? "on" : "off") << "\n";
+            }
         } else if (cmd == "wind") {
             if (argc > 2) {
                 std::string v = argv[2];

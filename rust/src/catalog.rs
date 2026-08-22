@@ -40,7 +40,7 @@ pub const CATALOG: &[BoseDevice] = &[
     BoseDevice { product_id: 0x402B, codename: "beanie",     name: "Hearphones II",                          category: Category::Headphones, config: None },
     BoseDevice { product_id: 0x4039, codename: "duran",      name: "QuietComfort 45",                        category: Category::Headphones, config: None },
     BoseDevice { product_id: 0x4066, codename: "lonestarr",  name: "QuietComfort Ultra Headphones",          category: Category::Headphones, config: None },
-    BoseDevice { product_id: 0x4075, codename: "prince",     name: "QuietComfort Headphones",                category: Category::Headphones, config: None },
+    BoseDevice { product_id: 0x4075, codename: "prince",     name: "QuietComfort Headphones",                category: Category::Headphones, config: Some("qc_prince") },
     BoseDevice { product_id: 0x4082, codename: "wolverine",  name: "QuietComfort Ultra Headphones (2nd Gen)", category: Category::Headphones, config: Some("qc_ultra2") },
     // Earbuds
     BoseDevice { product_id: 0x4012, codename: "ice",        name: "SoundSport",                             category: Category::Earbuds, config: None },
@@ -134,6 +134,13 @@ mod tests {
     }
 
     #[test]
+    fn test_lookup_qc_prince() {
+        let dev = lookup_device(0x4075).unwrap();
+        assert_eq!(dev.codename, "prince");
+        assert_eq!(dev.config, Some("qc_prince"));
+    }
+
+    #[test]
     fn test_lookup_unknown() {
         assert!(lookup_device(0xFFFF).is_none());
     }
@@ -142,6 +149,7 @@ mod tests {
     fn test_is_supported() {
         assert!(is_supported(0x4082)); // wolverine
         assert!(is_supported(0x4062)); // edith
+        assert!(is_supported(0x4075)); // prince
         assert!(is_supported(0x4020)); // baywolf
         assert!(is_supported(0x400C)); // wolfcastle
         assert!(!is_supported(0x4024)); // NCH 700, no config

@@ -147,11 +147,16 @@ public:
 
     // Returns (cnc, auto_cnc, spatial, wind, anc)
     std::array<uint8_t, 5> audio_settings() {
-        auto addr = require(config_.audio_settings, "audio_settings");
-        auto p = get(addr);
-        std::array<uint8_t, 5> out = {0, 0, 0, 1, 1};
-        for (size_t i = 0; i < 5 && i < p.size(); i++) out[i] = p[i];
-        return out;
+        if (config_.audio_settings) {
+            auto p = get(*config_.audio_settings);
+            std::array<uint8_t, 5> out = {0, 0, 0, 1, 1};
+            for (size_t i = 0; i < 5 && i < p.size(); i++) out[i] = p[i];
+            return out;
+        }
+        auto mc = current_mode_config();
+        return {mc.cnc_level, 0, mc.spatial,
+                static_cast<uint8_t>(mc.wind_block ? 1 : 0),
+                static_cast<uint8_t>(mc.anc_toggle ? 1 : 0)};
     }
 
     void set_eq(int8_t bass, int8_t mid, int8_t treble) {
@@ -331,15 +336,18 @@ private:
     // Write audio settings via [31.10] preserving non-overridden fields.
     // Use 255 as "don't change" for any parameter.
     void update_audio_settings(uint8_t cnc, uint8_t spatial, uint8_t wind, uint8_t anc) {
-        auto addr = require(config_.audio_settings, "audio_settings");
-        auto cur = get(addr);
-        std::vector<uint8_t> p = {0, 0, 0, 1, 1};
-        for (size_t i = 0; i < 5 && i < cur.size(); i++) p[i] = cur[i];
-        if (cnc != 255) p[0] = cnc;
-        if (spatial != 255) p[2] = spatial;
-        if (wind != 255) p[3] = wind;
-        if (anc != 255) p[4] = anc;
-        setget(addr, p);
+        if (config_.audio_settings) {
+            auto cur = get(*config_.audio_settings);
+            std::vector<uint8_t> p = {0, 0, 0, 1, 1};
+            for (size_t i = 0; i < 5 && i < cur.size(); i++) p[i] = cur[i];
+            if (cnc != 255) p[0] = cnc;
+            if (spatial != 255) p[2] = spatial;
+            if (wind != 255) p[3] = wind;
+            if (anc != 255) p[4] = anc;
+            setget(*config_.audio_settings, p);
+            return;
+        }
+        update_current_mode_config(cnc, spatial, wind, anc);
     }
 
     std::pair<uint8_t, ModeConfig> ensure_editable_profile() {
@@ -380,9 +388,36 @@ private:
         throw std::runtime_error("No free profile slot available");
     }
 
+    ModeConfig current_mode_config() {
+        auto idx = mode_idx();
+        auto all = modes();
+        for (auto& m : all) {
+            if (m.mode_idx == idx) return m;
+        }
+        throw std::runtime_error("Current mode config not available");
+    }
+
+    void update_current_mode_config(uint8_t cnc, uint8_t spatial, uint8_t wind, uint8_t anc) {
+        if (anc != 255 && !config_.supports_anc_toggle) {
+            throw std::runtime_error("ANC on/off toggle not supported on this device");
+        }
+        auto mc = current_mode_config();
+        if (!mc.editable) {
+            throw std::runtime_error("Current mode is not editable on this device: " + mc.name);
+        }
+        if (cnc != 255) mc.cnc_level = cnc;
+        if (spatial != 255) mc.spatial = spatial;
+        if (wind != 255) mc.wind_block = wind != 0;
+        if (anc != 255) mc.anc_toggle = anc != 0;
+        write_mode(mc.mode_idx, mc);
+    }
+
     void write_mode(uint8_t slot, const ModeConfig& mc) {
         auto addr = require(config_.mode_config, "mode_config");
-        auto payload = build_mode_config_40(
+        if (!config_.build_mode_config) {
+            throw std::runtime_error("Mode config builder not supported on this device");
+        }
+        auto payload = config_.build_mode_config(
             slot, mc.name, mc.cnc_level, mc.spatial,
             mc.wind_block, mc.anc_toggle, mc.prompt_b1, mc.prompt_b2);
         auto pkt = bmap_packet(addr.fblock, addr.func, Operator::SetGet, payload);

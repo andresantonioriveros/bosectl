@@ -120,6 +120,10 @@ pub struct DeviceConfig {
     pub editable_slots: &'static [u8],
     /// Device-specific ModeConfig STATUS parser. None if device has no mode config.
     pub parse_mode_config: Option<fn(&[u8]) -> Option<ModeConfig>>,
+    /// Device-specific ModeConfig SETGET builder.
+    pub build_mode_config: Option<fn(u8, &str, u8, u8, bool, bool, u8, u8) -> Vec<u8>>,
+    /// Whether the ModeConfig or audio settings layout exposes an ANC toggle bit.
+    pub supports_anc_toggle: bool,
 }
 
 // ── Shared Parsers ──────────────────────────────────────────────────────────
@@ -455,6 +459,60 @@ pub fn parse_mode_config_qc_ultra2(payload: &[u8]) -> Option<ModeConfig> {
     }
 }
 
+/// Parse a 47-byte ModeConfig STATUS response (QuietComfort Headphones/prince).
+///
+/// STATUS offsets: CNC=42, spatial=44, wind=46. No anc_toggle byte.
+/// SETGET echo format is 39 bytes: CNC=35, spatial=37, wind=38.
+pub fn parse_mode_config_prince(payload: &[u8]) -> Option<ModeConfig> {
+    if payload.len() < 6 {
+        return None;
+    }
+
+    let mode_idx = payload[0];
+    let prompt_b1 = payload[1];
+    let prompt_b2 = payload[2];
+
+    if payload.len() >= 47 {
+        let editable = payload[3] != 0;
+        let configured = payload[4] != 0;
+        let name_bytes = &payload[6..38];
+        let name_end = name_bytes.iter().position(|&b| b == 0).unwrap_or(32);
+        let name = String::from_utf8_lossy(&name_bytes[..name_end]).into_owned();
+
+        Some(ModeConfig {
+            mode_idx,
+            name,
+            cnc_level: payload[42],
+            spatial: payload[44],
+            wind_block: payload[46] != 0,
+            anc_toggle: false,
+            editable,
+            configured,
+            prompt_b1,
+            prompt_b2,
+        })
+    } else if payload.len() >= 39 {
+        let name_bytes = &payload[3..35];
+        let name_end = name_bytes.iter().position(|&b| b == 0).unwrap_or(32);
+        let name = String::from_utf8_lossy(&name_bytes[..name_end]).into_owned();
+
+        Some(ModeConfig {
+            mode_idx,
+            name,
+            cnc_level: payload[35],
+            spatial: payload[37],
+            wind_block: payload[38] != 0,
+            anc_toggle: false,
+            editable: true,
+            configured: true,
+            prompt_b1,
+            prompt_b2,
+        })
+    } else {
+        None
+    }
+}
+
 /// Build a 40-byte ModeConfig SETGET payload.
 pub fn build_mode_config_40(
     mode_idx: u8, name: &str, cnc_level: u8, spatial: u8,
@@ -470,6 +528,23 @@ pub fn build_mode_config_40(
     payload.push(spatial);
     payload.push(if wind_block { 1 } else { 0 });
     payload.push(if anc_toggle { 1 } else { 0 });
+    payload
+}
+
+/// Build a 39-byte ModeConfig SETGET payload (QuietComfort Headphones/prince).
+pub fn build_mode_config_39(
+    mode_idx: u8, name: &str, cnc_level: u8, spatial: u8,
+    wind_block: bool, _anc_toggle: bool, prompt_b1: u8, prompt_b2: u8,
+) -> Vec<u8> {
+    let mut payload = Vec::with_capacity(39);
+    payload.push(mode_idx);
+    payload.push(prompt_b1);
+    payload.push(prompt_b2);
+    payload.extend_from_slice(&encode_mode_name(name));
+    payload.push(cnc_level);
+    payload.push(0); // auto_cnc
+    payload.push(spatial);
+    payload.push(if wind_block { 1 } else { 0 });
     payload
 }
 
@@ -570,5 +645,33 @@ mod tests {
         assert_eq!(payload[37], 2);  // spatial
         assert_eq!(payload[38], 1);  // wind_block
         assert_eq!(payload[39], 1);  // anc_toggle
+    }
+
+    #[test]
+    fn test_build_mode_config_39() {
+        let payload = build_mode_config_39(3, "Music", 5, 0, true, false, 0, 12);
+        assert_eq!(payload.len(), 39);
+        assert_eq!(payload[0], 3);
+        assert_eq!(payload[1], 0);
+        assert_eq!(payload[2], 12);
+        assert_eq!(&payload[3..8], b"Music");
+        assert_eq!(payload[35], 5);
+        assert_eq!(payload[38], 1);
+    }
+
+    #[test]
+    fn test_parse_mode_config_prince_capture() {
+        let payload = vec![
+            0x03,0x00,0x0c,0x01,0x01,0x00,0x4d,0x75,0x73,0x69,0x63,0x00,0x00,0x00,0x00,0x00,
+            0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+            0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x09,0x05,0x00,0x00,0x00,0x00,
+        ];
+        let mc = parse_mode_config_prince(&payload).unwrap();
+        assert_eq!(mc.mode_idx, 3);
+        assert_eq!(mc.prompt_b2, 12);
+        assert_eq!(mc.name, "Music");
+        assert_eq!(mc.cnc_level, 5);
+        assert!(!mc.wind_block);
+        assert!(!mc.anc_toggle);
     }
 }

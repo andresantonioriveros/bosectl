@@ -3,9 +3,9 @@
 import pytest
 from pybmap.connection import BmapConnection
 from pybmap.protocol import bmap_packet
-from pybmap.constants import OP_GET, OP_STATUS, OP_RESULT, OP_ERROR
+from pybmap.constants import OP_GET, OP_SETGET, OP_STATUS, OP_RESULT, OP_ERROR
 from pybmap.errors import BmapError, BmapAuthError, BmapDeviceError
-from pybmap.devices import qc_ultra2
+from pybmap.devices import qc_ultra2, qc_prince
 
 
 class MockTransport:
@@ -160,6 +160,51 @@ class TestPublicAPI:
         with BmapConnection(transport, qc_ultra2) as dev:
             assert dev.battery() == 70
         assert transport.closed is True
+
+
+class TestPrinceAudioModes:
+    MUSIC_MODE = bytes.fromhex(
+        "03000c0101004d757369630000000000000000000000000000000000"
+        "00000000000000000000000000090500000000"
+    )
+
+    def test_audio_settings_fallback_reads_current_mode(self):
+        transport = MockTransport()
+        transport.add_response(31, 3, OP_STATUS, bytes([3]))
+        transport.responses[(31, 1)] = (
+            bytes([31, 6, OP_STATUS, len(self.MUSIC_MODE)]) + self.MUSIC_MODE
+        )
+        dev = BmapConnection(transport, qc_prince)
+
+        settings = dev.audio_settings()
+
+        assert settings.cnc_level == 5
+        assert settings.wind_block is False
+        assert settings.anc_toggle is False
+
+    def test_set_wind_fallback_writes_39_byte_mode_config(self):
+        transport = MockTransport()
+        transport.add_response(31, 3, OP_STATUS, bytes([3]))
+        transport.responses[(31, 1)] = (
+            bytes([31, 6, OP_STATUS, len(self.MUSIC_MODE)]) + self.MUSIC_MODE
+        )
+        transport.add_response(31, 6, OP_STATUS, self.MUSIC_MODE)
+        dev = BmapConnection(transport, qc_prince)
+
+        dev.set_wind(True)
+
+        sent = transport.sent[-1]
+        assert sent[:4] == bytes([31, 6, OP_SETGET, 39])
+        assert sent[4] == 3
+        assert sent[4 + 35] == 5
+        assert sent[4 + 38] == 1
+
+    def test_set_anc_fallback_rejects_unsupported_toggle(self):
+        transport = MockTransport()
+        dev = BmapConnection(transport, qc_prince)
+
+        with pytest.raises(BmapError, match="ANC on/off"):
+            dev.set_anc(False)
 
 
 class TestErrorHandling:

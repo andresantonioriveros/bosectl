@@ -36,6 +36,34 @@ inline DeviceConfig qc_ultra2() {
     };
     c.editable_slots = {4, 5, 6, 7, 8, 9, 10};
     c.parse_mode_config = parse_mode_config_qc_ultra2;
+    c.build_mode_config = build_mode_config_40;
+    c.supports_anc_toggle = true;
+    return c;
+}
+
+/// Bose QuietComfort Headphones -- prince, product ID 0x4075.
+/// Verified against firmware 1.0.6-80+f5f219b. RFCOMM channel 8.
+inline DeviceConfig qc_prince() {
+    DeviceConfig c;
+    c.info = {"Bose QuietComfort Headphones", "prince", "Unknown"};
+    c.rfcomm_channel = 8;
+    c.battery = Addr{2, 2};
+    c.firmware = Addr{0, 5};
+    c.product_name = Addr{1, 2};
+    c.voice_prompts = Addr{1, 3};
+    c.cnc = Addr{1, 5};
+    c.pairing = Addr{4, 8};
+    c.get_all_modes = Addr{31, 1};
+    c.current_mode = Addr{31, 3};
+    c.mode_config = Addr{31, 6};
+    c.preset_modes = {
+        {"quiet", {0, "Quiet - full ANC"}},
+        {"aware", {1, "Aware - transparency"}},
+    };
+    c.editable_slots = {2, 3};
+    c.parse_mode_config = parse_mode_config_prince;
+    c.build_mode_config = build_mode_config_39;
+    c.supports_anc_toggle = false;
     return c;
 }
 
@@ -68,6 +96,7 @@ inline DeviceConfig qc35() {
 inline std::optional<DeviceConfig> get_device(const std::string& name) {
     if (name == "qc_ultra2") return qc_ultra2();
     if (name == "qc35") return qc35();
+    if (name == "qc_prince") return qc_prince();
     return std::nullopt;
 }
 
