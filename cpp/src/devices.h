@@ -160,12 +160,38 @@ inline DeviceConfig qc45() {
     return c;
 }
 
+/// Bose Ultra Open Earbuds — codename serena, firmware 4.0.22+g1b923b0.
+/// From the #25 device report: reads, Settings SETGET, EQ, and mode
+/// switching confirmed. Open-ear, so no CNC. ModeConfig layout inferred
+/// from QC Ultra; read-only until a STATUS capture fixes the SETGET format.
+inline DeviceConfig ultra_open() {
+    DeviceConfig c;
+    c.info = {"Bose Ultra Open Earbuds", "serena", "QCC"};
+    c.rfcomm_channel = 2;
+    c.battery = Addr{2, 2};
+    c.firmware = Addr{0, 5};
+    c.product_name = Addr{1, 2};
+    c.voice_prompts = Addr{1, 3};
+    c.eq = Addr{1, 7};
+    c.multipoint = Addr{1, 10};
+    c.pairing = Addr{4, 8};
+    c.source = Addr{5, 1};
+    c.power = Addr{7, 4};
+    c.get_all_modes = Addr{31, 1};
+    c.current_mode = Addr{31, 3};
+    c.mode_config = Addr{31, 6};
+    c.parse_mode_config = parse_mode_config_qc_ultra2;
+    c.supports_anc_toggle = false;
+    return c;
+}
+
 inline std::optional<DeviceConfig> get_device(const std::string& name) {
     if (name == "qc_ultra2") return qc_ultra2();
     if (name == "qc35") return qc35();
     if (name == "qc_prince") return qc_prince();
     if (name == "qc_earbuds") return qc_earbuds();
     if (name == "qc45") return qc45();
+    if (name == "ultra_open") return ultra_open();
     return std::nullopt;
 }
 

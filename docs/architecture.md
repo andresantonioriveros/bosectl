@@ -372,6 +372,7 @@ a default config since they don't have a tested implementation yet.
 | `0x4075` | prince | QuietComfort Headphones | `qc_prince` |
 | `0x402F` | lando | QuietComfort Earbuds | `qc_earbuds` |
 | `0x4039` | duran | QuietComfort 45 | `qc45` (inferred, untested) |
+| `0x4068` | serena | Ultra Open Earbuds | `ultra_open` (partial) |
 | `0x4082` | wolverine | QuietComfort Ultra Headphones (2nd Gen) | `qc_ultra2` |
 
 ### Known Unsupported (Future Targets)

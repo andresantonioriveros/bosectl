@@ -234,6 +234,49 @@ pub fn qc45() -> DeviceConfig {
     }
 }
 
+/// Bose Ultra Open Earbuds — codename serena, firmware 4.0.22+g1b923b0.
+/// From the #25 device report: reads, Settings SETGET, EQ, and mode
+/// switching confirmed. Open-ear, so no CNC. ModeConfig layout inferred
+/// from QC Ultra; read-only until a STATUS capture fixes the SETGET format.
+pub fn ultra_open() -> DeviceConfig {
+    DeviceConfig {
+        info: DeviceInfo {
+            name: "Bose Ultra Open Earbuds",
+            codename: "serena",
+            platform: "QCC",
+        },
+        rfcomm_channel: 2,
+        init_packet: None,
+        battery: Some(Addr(2, 2)),
+        firmware: Some(Addr(0, 5)),
+        product_name: Some(Addr(1, 2)),
+        voice_prompts: Some(Addr(1, 3)),
+        cnc: None,
+        eq: Some(Addr(1, 7)),
+        buttons: None,
+        multipoint: Some(Addr(1, 10)),
+        sidetone: None,
+        auto_pause: None,
+        auto_answer: None,
+        anr: None,
+        pairing: Some(Addr(4, 8)),
+        routing: None,
+        source: Some(Addr(5, 1)),
+        power: Some(Addr(7, 4)),
+        get_all_modes: Some(Addr(31, 1)),
+        current_mode: Some(Addr(31, 3)),
+        mode_config: Some(Addr(31, 6)),
+        favorites: None,
+        audio_settings: None,
+        preset_modes: &[],
+        editable_slots: &[],
+        parse_mode_config: Some(parse_mode_config_qc_ultra2),
+        build_mode_config: None,
+        supports_anc_toggle: false,
+        cnc_direct_setget: false,
+    }
+}
+
 pub fn get_device(name: &str) -> Option<DeviceConfig> {
     match name {
         "qc_ultra2" => Some(qc_ultra2()),
@@ -241,6 +284,7 @@ pub fn get_device(name: &str) -> Option<DeviceConfig> {
         "qc_prince" => Some(qc_prince()),
         "qc_earbuds" => Some(qc_earbuds()),
         "qc45" => Some(qc45()),
+        "ultra_open" => Some(ultra_open()),
         _ => None,
     }
 }
@@ -286,6 +330,7 @@ mod tests {
         assert!(get_device("qc_prince").is_some());
         assert!(get_device("qc_earbuds").is_some());
         assert!(get_device("qc45").is_some());
+        assert!(get_device("ultra_open").is_some());
         assert!(get_device("nonexistent").is_none());
     }
 

@@ -55,7 +55,7 @@ inline const std::vector<BoseDevice>& catalog() {
         {0x4061, "vedder",     "Frames",                                  Category::Earbuds, nullptr},
         {0x4062, "edith",      "QuietComfort Ultra Earbuds (2nd Gen)",    Category::Earbuds, "qc_ultra2"},
         {0x4064, "smalls",     "QuietComfort Earbuds II",                 Category::Earbuds, nullptr},
-        {0x4068, "serena",     "Ultra Open Earbuds",                      Category::Earbuds, nullptr},
+        {0x4068, "serena",     "Ultra Open Earbuds",                      Category::Earbuds, "ultra_open"},
         {0x4072, "scotty",     "QuietComfort Ultra Earbuds",              Category::Earbuds, nullptr},
         // Speakers
         {0x400A, "isaac",      "AE2 SoundLink",                           Category::Speaker, nullptr},

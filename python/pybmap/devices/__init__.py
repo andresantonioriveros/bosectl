@@ -5,6 +5,7 @@ from . import qc35
 from . import qc_prince
 from . import qc_earbuds
 from . import qc45
+from . import ultra_open
 
 # Registry of supported devices keyed by type string.
 DEVICES = {
@@ -13,6 +14,7 @@ DEVICES = {
     "qc_prince": qc_prince,
     "qc_earbuds": qc_earbuds,
     "qc45": qc45,
+    "ultra_open": ultra_open,
 }
 
 # Product ID -> device type (for auto-detection after connecting).
@@ -21,6 +23,7 @@ PRODUCT_IDS = {
     0x4075: "qc_prince",
     0x402F: "qc_earbuds",
     0x4039: "qc45",
+    0x4068: "ultra_open",
     # TODO: add QC35 product ID once verified
 }
 

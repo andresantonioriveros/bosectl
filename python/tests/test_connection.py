@@ -274,3 +274,23 @@ class TestQcEarbudsConnection:
         dev = BmapConnection(transport, qc_earbuds)
         dev.set_cnc(4)
         assert transport.sent[-1] == bytes([1, 5, OP_SETGET, 2, 4, 1])
+
+
+class TestUltraOpenConnection:
+    def test_no_cnc_feature_and_no_profile_editing(self):
+        from pybmap.devices import ultra_open
+        dev = BmapConnection(MockTransport(), ultra_open)
+        assert not dev.has_feature("cnc")
+        with pytest.raises(BmapError):
+            dev.set_cnc(3)
+        assert ultra_open.FEATURES["mode_config"].get("builder") is None
+
+    def test_set_mode_resolves_name_from_device_when_no_presets(self):
+        from pybmap.devices import ultra_open
+        transport = MockTransport()
+        still = bytes([1, 0, 0, 0, 1, 0]) + b"Still".ljust(32, b"\x00") + bytes(10)
+        transport.responses[(31, 1)] = bytes([31, 6, OP_STATUS, len(still)]) + still
+        transport.add_response(31, 3, OP_RESULT, b"")
+        dev = BmapConnection(transport, ultra_open)
+        dev.set_mode("still")
+        assert transport.sent[-1] == bytes([31, 3, 5, 2, 1, 0])

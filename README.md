@@ -30,6 +30,7 @@ connection to the headphones.
 | **QuietComfort 35 / 35 II** | ANR off/high/wind/low                 | —      | —              | —                     | Action remap (VPA/ANC) | Verified           |
 | **QuietComfort Earbuds**    | CNC 0-10 via direct SETGET            | 3-band | —              | 4 fixed modes         | Remap                  | Verified (`lando`) |
 | **QuietComfort 45**         | CNC 0-10 via ModeConfig               | 3-band | —              | 2 user slots          | Remap                  | Inferred (`duran`), untested on hardware |
+| **Ultra Open Earbuds**      | — (open-ear)                          | 3-band | —              | switch only           | —                      | Partial (`serena`), from device report |
 
 ### Device Roadmap
 
@@ -43,7 +44,6 @@ product ID but don't have tested configurations yet — contributions welcome:
 | QuietComfort Ultra Headphones   | lonestarr | Headphones | `0x4066` |
 | QuietComfort Earbuds II         | smalls    | Earbuds    | `0x4064` |
 | QuietComfort Ultra Earbuds      | scotty    | Earbuds    | `0x4072` |
-| Ultra Open Earbuds              | serena    | Earbuds    | `0x4068` |
 | SoundLink Flex                  | phelps    | Speaker    | `0xBC59` |
 | SoundLink Flex 2                | mathers   | Speaker    | `0xBC61` |
 

@@ -60,6 +60,7 @@ class TestSupport:
         assert is_supported(0x4020)  # baywolf
         assert is_supported(0x400C)  # wolfcastle
         assert is_supported(0x402F)  # lando (QC Earbuds)
+        assert is_supported(0x4068)  # serena (Ultra Open)
 
     def test_not_supported(self):
         assert not is_supported(0x4024)  # NCH 700
