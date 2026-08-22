@@ -383,7 +383,7 @@ implemented.
 To add support for a new Bose device:
 
 1. **Add to the catalog** — add its PID, codename, and name with `config=None`
-2. **Discover the RFCOMM channel** — try channels 2 and 8
+2. **Discover the RFCOMM channel** — `connect()` tries the config's channel, then probes 2, 8, 9 with a firmware GET (`FALLBACK_CHANNELS`); set `RFCOMM_CHANNEL` to whichever answers on your unit
 3. **Check if an init packet is needed** — send GET [0.1] and see if subsequent commands work
 4. **Probe features** — GET on known function addresses to see what responds
 5. **Create a device config** with the discovered addresses and parsers

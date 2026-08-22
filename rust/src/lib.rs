@@ -46,13 +46,74 @@ pub fn connect(mac: Option<&str>, device_type: Option<&str>) -> BmapResult<BmapC
     let config = devices::get_device(&resolved_type)
         .ok_or_else(|| BmapError::InvalidArg(format!("Unknown device: {}", resolved_type)))?;
 
-    let transport = transport::RfcommTransport::connect(&mac, config.rfcomm_channel)?;
+    let transport = open_transport(&mac, config.rfcomm_channel, config.init_packet)?;
+    Ok(BmapConnection::new(transport, config))
+}
 
-    // Some devices require an init packet before responding.
-    if let Some(init) = config.init_packet {
+/// RFCOMM channels BMAP has been observed on. The channel a unit exposes can
+/// vary with firmware and with which profiles bluetoothd has already claimed,
+/// so the device's configured channel is a first guess rather than a fact.
+pub const FALLBACK_CHANNELS: [u8; 3] = [2, 8, 9];
+
+/// Connect on the configured channel, then probe fallbacks.
+///
+/// A socket that accepts the connection is not proof of BMAP — several
+/// channels accept and stay silent — so each fallback is confirmed with a
+/// firmware GET [0.5] before it is returned.
+fn open_transport(
+    mac: &str,
+    channel: u8,
+    init_packet: Option<device::Addr>,
+) -> BmapResult<transport::RfcommTransport> {
+    let candidates: Vec<u8> = std::iter::once(channel)
+        .chain(FALLBACK_CHANNELS.iter().copied().filter(|&c| c != channel))
+        .collect();
+    let mut first_error: Option<BmapError> = None;
+
+    for (i, &ch) in candidates.iter().enumerate() {
+        let transport = match transport::RfcommTransport::connect(mac, ch) {
+            Ok(t) => t,
+            Err(e) => {
+                first_error.get_or_insert(e);
+                continue;
+            }
+        };
+        if i == 0 {
+            // Configured channel connected: trust it, send init if needed.
+            send_init(&transport, init_packet)?;
+            return Ok(transport);
+        }
+        if speaks_bmap(&transport, init_packet) {
+            return Ok(transport);
+        }
+        // transport dropped here, closing the socket
+    }
+
+    let tried: Vec<String> = candidates.iter().map(|c| c.to_string()).collect();
+    Err(BmapError::Connection(format!(
+        "No BMAP channel found on {} (tried {}): {}",
+        mac,
+        tried.join(", "),
+        first_error.map(|e| e.to_string()).unwrap_or_default()
+    )))
+}
+
+fn send_init(transport: &transport::RfcommTransport, init_packet: Option<device::Addr>) -> BmapResult<()> {
+    if let Some(init) = init_packet {
         let pkt = protocol::bmap_packet(init.0, init.1, protocol::Operator::Get, &[]);
         transport.send_recv(&pkt)?;
     }
+    Ok(())
+}
 
-    Ok(BmapConnection::new(transport, config))
+/// Send a firmware GET and return true on any parseable BMAP reply.
+fn speaks_bmap(transport: &transport::RfcommTransport, init_packet: Option<device::Addr>) -> bool {
+    if send_init(transport, init_packet).is_err() {
+        return false;
+    }
+    let pkt = protocol::bmap_packet(0, 5, protocol::Operator::Get, &[]);
+    match transport.send_recv(&pkt) {
+        Ok(data) => protocol::parse_response(&data).is_some(),
+        Err(_) => false,
+    }
 }

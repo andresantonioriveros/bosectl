@@ -298,7 +298,9 @@ class BmapConnection:
             idx = found
 
         resp = self._start("current_mode", bytes([idx, 1 if announce else 0]))
-        if resp and resp.op != OP_RESULT:
+        # Some firmware (QC Headphones "prince") acks START [31.3] with
+        # PROCESSING and applies the switch asynchronously.
+        if resp and resp.op not in (OP_RESULT, OP_PROCESSING):
             raise BmapDeviceError("Mode switch failed: %s" % fmt_response(resp))
 
     def set_cnc(self, level):

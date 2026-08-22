@@ -12,7 +12,21 @@ verified on real hardware.
 
 `prince` exposes BMAP over Bluetooth SPP. Connecting through the standard SPP
 UUID (`00001101-0000-1000-8000-00805F9B34FB`) resolves to RFCOMM channel 8 on
-the tested unit.
+the tested unit. A second unit (firmware 1.0.6-80+f5f219b, BlueZ 5.85)
+returned `EBUSY` on 8 and answered on 9, so the channel varies by unit or by
+which profiles bluetoothd has already claimed. `connect()` handles this:
+the configured channel is tried first, then 2, 8, and 9 are probed with a
+firmware GET, since some channels (14, 25, 26 observed) accept the socket
+without speaking BMAP.
+
+Mode switches via `START [31.3]` are acked with `PROCESSING` (7) rather than
+`RESULT` and applied asynchronously; `set_mode()` treats both as success.
+
+Open question: the two units disagreed on sidetone (`off` vs `medium`) and
+multipoint (`off` vs `on`) read from the same device seconds apart. The unit
+reporting `medium` had sidetone set to medium earlier in that session, which
+points at the `[1.11]`/`[1.10]` parsers' offsets being worth re-checking
+against a capture.
 
 BMAP framing is unchanged:
 

@@ -303,7 +303,9 @@ impl<T: Transport> BmapConnection<T> {
         let resp = parse_response(&data)
             .ok_or_else(|| BmapError::Timeout("No response".into()))?;
         self.check_error(&resp)?;
-        if resp.op != Operator::Result {
+        // Some firmware (QC Headphones "prince") acks START [31.3] with
+        // PROCESSING and applies the switch asynchronously.
+        if !matches!(resp.op, Operator::Result | Operator::Processing) {
             return Err(BmapError::Device { message: "Mode switch failed".into(), code: 0 });
         }
         Ok(())
@@ -769,6 +771,22 @@ mod tests {
             Err(BmapError::Device { code, .. }) => assert_eq!(code, 8),
             other => panic!("Expected Device error, got {:?}", other),
         }
+    }
+
+    #[test]
+    fn test_set_mode_accepts_processing_ack() {
+        let mut t = MockTransport::new();
+        t.add(31, 3, 0x07, &[]); // PROCESSING: async ack (prince)
+        let dev = BmapConnection::new(t, devices::qc_prince());
+        dev.set_mode("quiet", false).unwrap();
+    }
+
+    #[test]
+    fn test_set_mode_rejects_unexpected_op() {
+        let mut t = MockTransport::new();
+        t.add(31, 3, 0x03, &[0]); // STATUS where RESULT/PROCESSING expected
+        let dev = BmapConnection::new(t, devices::qc_prince());
+        assert!(dev.set_mode("quiet", false).is_err());
     }
 
     #[test]

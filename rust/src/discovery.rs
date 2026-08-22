@@ -102,6 +102,7 @@ fn detect_device_type(info: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[allow(unused_imports)]
     use super::*;
 
     #[cfg(target_os = "macos")]
