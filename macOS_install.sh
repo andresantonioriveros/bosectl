@@ -2,6 +2,7 @@
 # bosectl macOS Installer
 
 set -e
+cd "$(dirname "$0")"
 
 echo "=== bosectl macOS Installer ==="
 echo ""

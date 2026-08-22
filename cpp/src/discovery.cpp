@@ -4,6 +4,7 @@
 
 #ifndef __APPLE__
 #include <array>
+#include <cctype>
 #include <cstdio>
 #include <memory>
 #include <regex>
@@ -12,6 +13,15 @@
 #include <vector>
 
 namespace bmap {
+
+static bool is_mac(const std::string& s) {
+    if (s.size() != 17) return false;
+    for (size_t i = 0; i < s.size(); ++i) {
+        if (i % 3 == 2) { if (s[i] != ':') return false; }
+        else if (!std::isxdigit(static_cast<unsigned char>(s[i]))) return false;
+    }
+    return true;
+}
 
 static std::string exec(const std::string& cmd) {
     std::array<char, 256> buf;
@@ -50,6 +60,9 @@ std::optional<std::pair<std::string, std::string>> find_bmap_device() {
         auto second_space = line.find(' ', first_space + 1);
         if (second_space == std::string::npos) continue;
         auto mac = line.substr(first_space + 1, second_space - first_space - 1);
+        // The token comes from bluetoothd, but it is about to go through a
+        // shell: accept only a literal MAC.
+        if (!is_mac(mac)) continue;
 
         auto info = exec("bluetoothctl info " + mac + " 2>/dev/null");
 
