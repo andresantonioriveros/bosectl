@@ -37,6 +37,8 @@ class FakeTransportFactory:
             def send_recv(t, packet, drain=False):
                 if kind == "silent":
                     raise BmapTimeoutError("No response from device")
+                if kind == "chatty":
+                    return b"ERROR\r\n"  # an HFP AG answering garbage
                 return super().send_recv(packet, drain)
 
             def close(t):
@@ -68,6 +70,13 @@ def test_busy_configured_channel_falls_through_to_bmap_channel(patch_transport):
     dev = pybmap.connect(mac="00:11:22:33:44:55", device_type="qc_prince")
     assert f.attempts == [8, 2, 9]
     assert f.closed == [2]  # silent channel released
+    assert dev._transport.channel == 9
+
+
+def test_non_bmap_reply_is_not_accepted(patch_transport):
+    f = patch_transport({8: "busy", 2: "chatty", 9: "bmap"})
+    dev = pybmap.connect(mac="00:11:22:33:44:55", device_type="qc_prince")
+    assert f.closed == [2]
     assert dev._transport.channel == 9
 
 

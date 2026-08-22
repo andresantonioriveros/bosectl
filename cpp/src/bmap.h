@@ -32,7 +32,9 @@ inline bool speaks_bmap(Transport& transport, const DeviceConfig& config) {
     try {
         send_init(transport, config);
         auto data = transport.send_recv(bmap_packet(0, 5, Operator::Get));
-        return parse_response(data).has_value();
+        // Any 4+ byte reply parses; a real BMAP peer echoes the address we asked.
+        auto r = parse_response(data);
+        return r && r->fblock == 0 && r->func == 5 && r->op == Operator::Status;
     } catch (const std::exception&) {
         return false;
     }

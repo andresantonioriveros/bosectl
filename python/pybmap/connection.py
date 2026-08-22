@@ -148,7 +148,7 @@ class BmapConnection:
         fblock, func = feat["addr"]
         resp = self._transport.send_recv(bmap_packet(fblock, func, OP_GET))
         parsed = parse_response(resp)
-        if parsed:
+        if parsed and parsed.payload:
             return parsed.payload[0]
         return None
 

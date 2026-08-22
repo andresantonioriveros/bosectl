@@ -113,7 +113,11 @@ fn speaks_bmap(transport: &transport::RfcommTransport, init_packet: Option<devic
     }
     let pkt = protocol::bmap_packet(0, 5, protocol::Operator::Get, &[]);
     match transport.send_recv(&pkt) {
-        Ok(data) => protocol::parse_response(&data).is_some(),
+        // Any 4+ byte reply parses; a real BMAP peer echoes the address we asked.
+        Ok(data) => matches!(
+            protocol::parse_response(&data),
+            Some(r) if r.fblock == 0 && r.func == 5 && r.op == protocol::Operator::Status
+        ),
         Err(_) => false,
     }
 }

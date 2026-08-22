@@ -29,6 +29,7 @@ from .errors import (
 )
 from .types import DeviceStatus, ModeConfig, EqBand, ButtonMapping, BmapResponse
 from .protocol import bmap_packet, parse_response, parse_all_responses
+from .constants import OP_STATUS
 
 __version__ = "0.1.0"
 
@@ -115,4 +116,7 @@ def _speaks_bmap(transport, init):
         data = transport.send_recv(bmap_packet(0, 5, 1))  # GET firmware
     except BmapError:
         return False
-    return parse_response(data) is not None
+    resp = parse_response(data)
+    # Any 4+ byte reply parses; a real BMAP peer echoes the address we asked.
+    return (resp is not None and resp.fblock == 0 and resp.func == 5
+            and resp.op == OP_STATUS)
