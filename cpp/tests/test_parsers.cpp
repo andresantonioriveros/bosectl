@@ -1,8 +1,28 @@
 // Tests for shared device parsers using real captured data.
 #include "test_common.h"
+#include <cctype>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
 #include "../src/device.h"
 
 using namespace bmap;
+
+static std::vector<uint8_t> decode_hex_fixture(const std::string& relative_path) {
+    auto path = std::filesystem::path(__FILE__).parent_path() / relative_path;
+    std::ifstream input(path);
+    if (!input) throw std::runtime_error("Could not open fixture: " + path.string());
+    std::string hex((std::istreambuf_iterator<char>(input)), {});
+    hex.erase(std::remove_if(hex.begin(), hex.end(), [](unsigned char c) {
+        return std::isspace(c);
+    }), hex.end());
+    if (hex.size() % 2 != 0) throw std::runtime_error("Fixture contains incomplete hex byte");
+    std::vector<uint8_t> bytes;
+    for (size_t i = 0; i < hex.size(); i += 2) {
+        bytes.push_back(static_cast<uint8_t>(std::stoul(hex.substr(i, 2), nullptr, 16)));
+    }
+    return bytes;
+}
 
 TEST(parse_battery_from_capture) {
     ASSERT_EQ(parse_battery({0x50, 0xff, 0xff, 0x00}), 0x50);
@@ -10,6 +30,34 @@ TEST(parse_battery_from_capture) {
 
 TEST(parse_battery_empty) {
     ASSERT_EQ(parse_battery({}), 0);
+}
+
+TEST(parse_battery_readings) {
+    auto readings = parse_battery_readings(decode_hex_fixture(
+        "../../fixtures/packets/qc-ultra2-earbuds/battery-status.hex"));
+    ASSERT_EQ(readings.size(), 4u);
+    ASSERT_EQ(readings[0].component_id, 1);
+    ASSERT_EQ(readings[0].level, 60);
+    ASSERT_EQ(readings[3].component_id, 3);
+    ASSERT_EQ(readings[3].level, 80);
+    auto shuffled = parse_battery_readings({
+        0x50,0xff,0xff,0x03, 0x46,0xff,0xff,0x04,
+        0x32,0xff,0xff,0x09, 0x3c,0xff,0xff,0x01,
+        0x3c,0xff,0xff,0x02,
+    });
+    ASSERT_EQ(shuffled.size(), 5u);
+    ASSERT_EQ(shuffled[0].component_id, 3);
+    ASSERT_EQ(shuffled[1].component_id, 4);
+    ASSERT_EQ(shuffled[2].component_id, 9);
+    bool threw = false;
+    try { parse_battery_readings({0x50, 0xff}); }
+    catch (const std::invalid_argument&) { threw = true; }
+    ASSERT_TRUE(threw);
+    threw = false;
+    try { parse_battery_readings({
+        0x3c,0xff,0xff,0x01, 0x50,0xff,0xff,0x01}); }
+    catch (const std::invalid_argument&) { threw = true; }
+    ASSERT_TRUE(threw);
 }
 
 TEST(parse_firmware_from_capture) {

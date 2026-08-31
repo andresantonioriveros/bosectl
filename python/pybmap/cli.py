@@ -63,6 +63,13 @@ def cmd_status(dev):
     row("Model", dev.device_info.get("name", "Unknown"), C_MAGENTA)
     batt_color = C_GREEN if s.battery > 30 else C_YELLOW if s.battery > 10 else C_RED
     row("Battery", "%d%%" % s.battery, batt_color)
+    component_names = dev.battery_components
+    readings = {reading.component_id: reading.level for reading in s.battery_readings}
+    for component_id, label in component_names.items():
+        if component_id in readings:
+            level = readings[component_id]
+            color = C_GREEN if level > 30 else C_YELLOW if level > 10 else C_RED
+            row(label, "%d%%" % level, color)
     if s.mode:
         row("Mode", s.mode, C_CYAN)
 

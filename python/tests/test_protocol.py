@@ -60,6 +60,12 @@ class TestParseResponse:
         assert parse_response(bytes([1, 2, 3])) is None
         assert parse_response(bytes()) is None
 
+    def test_truncated_payload(self):
+        assert parse_response(bytes([2, 2, OP_STATUS, 4, 80, 0xff])) is None
+
+    def test_invalid_operator(self):
+        assert parse_response(bytes([2, 2, 0x08, 0])) is None
+
     def test_status_with_payload(self):
         payload = bytes([0x50, 0xff, 0xff, 0x00])  # Battery STATUS
         data = bytes([2, 2, 0x03, len(payload)]) + payload

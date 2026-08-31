@@ -7,6 +7,7 @@
 
 #include "../src/connection.h"
 #include "../src/devices.h"
+#include "../src/bmap.h"
 
 using namespace bmap;
 
@@ -52,6 +53,91 @@ static std::unique_ptr<BmapConnection> mock_qc_ultra2() {
 }
 
 TEST(battery) { ASSERT_EQ(mock_qc_ultra2()->battery(), 80); }
+
+TEST(battery_empty_response) {
+    auto raw = new MockTransport();
+    raw->add(2, 2, 0x03, {});
+    BmapConnection dev(std::unique_ptr<Transport>(raw), qc_ultra2());
+    bool threw = false;
+    try { dev.battery(); }
+    catch (const std::runtime_error& error) {
+        threw = std::string(error.what()).find("Empty battery response") != std::string::npos;
+    }
+    ASSERT_TRUE(threw);
+}
+
+TEST(battery_invalid_response) {
+    auto raw = new MockTransport();
+    raw->responses[{2, 2}] = {2, 2, 0x08, 0};
+    BmapConnection dev(std::unique_ptr<Transport>(raw), qc_ultra2());
+    bool threw = false;
+    try { dev.battery(); }
+    catch (const std::runtime_error& error) {
+        threw = std::string(error.what()).find("Invalid or empty response") != std::string::npos;
+    }
+    ASSERT_TRUE(threw);
+}
+
+TEST(battery_readings) {
+    auto raw = new MockTransport();
+    raw->add(2, 2, 0x03, {
+        0x50,0xff,0xff,0x03, 0x3c,0xff,0xff,0x01,
+        0x3c,0xff,0xff,0x02, 0x46,0xff,0xff,0x04,
+    });
+    BmapConnection dev(std::unique_ptr<Transport>(raw), qc_ultra2_earbuds());
+    auto battery = dev.battery_status();
+    ASSERT_EQ(battery.readings.size(), 4u);
+    ASSERT_EQ(battery.readings[0].component_id, 3);
+    ASSERT_EQ(battery.readings[0].level, 80);
+    ASSERT_EQ(battery.readings[3].component_id, 4);
+    ASSERT_EQ(dev.config().battery_components.size(), 3u);
+    ASSERT_EQ(battery.aggregate, 70);
+    ASSERT_EQ(raw->sent.size(), 1u);
+}
+
+TEST(battery_missing_aggregate_component) {
+    auto raw = new MockTransport();
+    raw->add(2, 2, 0x03, {
+        0x3c,0xff,0xff,0x01, 0x3c,0xff,0xff,0x02,
+        0x50,0xff,0xff,0x03,
+    });
+    BmapConnection dev(std::unique_ptr<Transport>(raw), qc_ultra2_earbuds());
+    bool threw = false;
+    try { dev.battery(); }
+    catch (const std::runtime_error& error) {
+        threw = std::string(error.what()).find("aggregate component 4") != std::string::npos;
+    }
+    ASSERT_TRUE(threw);
+}
+
+TEST(status_uses_one_battery_response) {
+    auto raw = new MockTransport();
+    raw->add(2, 2, 0x03, {
+        0x50,0xff,0xff,0x03, 0x3c,0xff,0xff,0x01,
+        0x46,0xff,0xff,0x04, 0x3c,0xff,0xff,0x02,
+    });
+    BmapConnection dev(std::unique_ptr<Transport>(raw), qc_ultra2_earbuds());
+    auto status = dev.status();
+    ASSERT_EQ(status.battery, 70);
+    ASSERT_EQ(status.battery_readings.size(), 4u);
+    size_t battery_requests = 0;
+    for (const auto& packet : raw->sent) {
+        if (packet.size() >= 2 && packet[0] == 2 && packet[1] == 2) battery_requests++;
+    }
+    ASSERT_EQ(battery_requests, 1u);
+}
+
+TEST(qc_ultra2_earbuds_config) {
+    auto config = qc_ultra2_earbuds();
+    ASSERT_EQ(config.info.codename, "edith");
+    ASSERT_EQ(config.info.name, "Bose QuietComfort Ultra Earbuds (2nd Gen)");
+    ASSERT_EQ(config.battery_components.size(), 3u);
+    ASSERT_EQ(config.battery_components[0].second, "Right");
+    ASSERT_EQ(config.battery_components[1].second, "Left");
+    ASSERT_EQ(config.battery_components[2].second, "Case");
+    ASSERT_EQ(*config.battery_aggregate_id, 4);
+    ASSERT_EQ(config.preset_modes.size(), 4u);
+}
 TEST(firmware) { ASSERT_EQ(mock_qc_ultra2()->firmware(), "8.2.20+g34cf029"); }
 TEST(device_name) { ASSERT_EQ(mock_qc_ultra2()->name(), "Fargo"); }
 
@@ -92,6 +178,15 @@ TEST(status_full) {
 TEST(has_feature_battery) { ASSERT_TRUE(mock_qc_ultra2()->has_feature("battery")); }
 TEST(has_feature_eq) { ASSERT_TRUE(mock_qc_ultra2()->has_feature("eq")); }
 TEST(has_feature_missing) { ASSERT_FALSE(mock_qc_ultra2()->has_feature("nonexistent")); }
+
+TEST(explicit_mac_requires_device_type) {
+    bool threw = false;
+    try { bmap::detail::validate_device_override("00:11:22:33:44:55", ""); }
+    catch (const std::invalid_argument& error) {
+        threw = std::string(error.what()).find("device_type is required") != std::string::npos;
+    }
+    ASSERT_TRUE(threw);
+}
 
 TEST(qc35_no_eq) {
     auto t = std::make_unique<MockTransport>();
