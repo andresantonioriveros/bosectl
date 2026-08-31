@@ -266,6 +266,15 @@ fn cmd_status(dev: &bmap::BmapConnection<impl bmap::Transport>) -> Result<(), Bm
 
     println!("  Model        {}", dev.config().info.name);
     println!("  Battery      {}%", s.battery);
+    for (component_id, label) in dev.config().battery_components {
+        if let Some(reading) = s
+            .battery_readings
+            .iter()
+            .find(|reading| reading.component_id == *component_id)
+        {
+            println!("  {:12} {}%", label, reading.level);
+        }
+    }
     if !s.mode.is_empty() {
         println!("  Mode         {}", s.mode);
     }
@@ -326,5 +335,5 @@ fn usage() {
     println!();
     println!("Environment:");
     println!("  BMAP_MAC=XX:XX:XX:XX:XX:XX   Device MAC (auto-detected if unset)");
-    println!("  BMAP_DEVICE=qc_ultra2|qc_prince|qc35   Device type");
+    println!("  BMAP_DEVICE=qc_ultra2|qc_ultra2_earbuds|qc_prince|qc35|qc_earbuds|qc45|ultra_open");
 }

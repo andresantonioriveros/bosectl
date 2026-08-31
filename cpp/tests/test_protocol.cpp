@@ -34,6 +34,8 @@ TEST(parse_response_basic) {
 TEST(parse_response_too_short) {
     auto resp = parse_response({1, 2});
     ASSERT_FALSE(resp.has_value());
+    ASSERT_FALSE(parse_response({2, 2, 0x03, 4, 80, 0xff}).has_value());
+    ASSERT_FALSE(parse_response({2, 2, 0x08, 0}).has_value());
 }
 
 TEST(parse_all_responses_two) {

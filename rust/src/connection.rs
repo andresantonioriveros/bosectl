@@ -37,8 +37,10 @@ impl<T: Transport> BmapConnection<T> {
     fn get(&self, addr: Addr) -> BmapResult<Vec<u8>> {
         let pkt = bmap_packet(addr.0, addr.1, Operator::Get, &[]);
         let data = self.transport.send_recv(&pkt)?;
-        let resp = parse_response(&data)
-            .ok_or_else(|| BmapError::Timeout("Empty response".into()))?;
+        let resp = parse_response(&data).ok_or_else(|| BmapError::Device {
+            message: "Invalid or empty response".into(),
+            code: 0,
+        })?;
         self.check_error(&resp)?;
         Ok(resp.payload)
     }
@@ -86,11 +88,49 @@ impl<T: Transport> BmapConnection<T> {
 
     /// Battery percentage.
     pub fn battery(&self) -> BmapResult<u8> {
+        Ok(self.battery_status()?.aggregate)
+    }
+
+    /// Aggregate and component levels from one battery response.
+    pub fn battery_status(&self) -> BmapResult<BatteryStatus> {
         let addr = self.addr(self.config.battery)?;
         let payload = self.get(addr)?;
-        parse_battery(&payload).ok_or_else(|| BmapError::Device {
-            message: "Empty battery response".into(), code: 0,
-        })
+        if let Some(component_id) = self.config.battery_aggregate_id {
+            let readings =
+                parse_battery_readings(&payload).map_err(|message| BmapError::Device {
+                    message: message.into(),
+                    code: 0,
+                })?;
+            let aggregate = readings
+                .iter()
+                .find(|reading| reading.component_id == component_id)
+                .map(|reading| reading.level)
+                .ok_or_else(|| BmapError::Device {
+                    message: format!(
+                        "Battery response missing aggregate component {}",
+                        component_id
+                    ),
+                    code: 0,
+                })?;
+            Ok(BatteryStatus {
+                aggregate,
+                readings,
+            })
+        } else {
+            let aggregate = parse_battery(&payload).ok_or_else(|| BmapError::Device {
+                message: "Empty battery response".into(),
+                code: 0,
+            })?;
+            Ok(BatteryStatus {
+                aggregate,
+                readings: Vec::new(),
+            })
+        }
+    }
+
+    /// Component battery readings, when the device reports multiple cells.
+    pub fn battery_readings(&self) -> BmapResult<Vec<BatteryReading>> {
+        Ok(self.battery_status()?.readings)
     }
 
     /// Firmware version string.
@@ -219,9 +259,11 @@ impl<T: Transport> BmapConnection<T> {
         };
         let (cnc_level, cnc_max) = self.cnc().unwrap_or((0, 10));
         let (prompts_enabled, prompts_language) = self.prompts().unwrap_or((false, "Unknown"));
+        let battery = self.battery_status()?;
 
         Ok(DeviceStatus {
-            battery: self.battery()?,
+            battery: battery.aggregate,
+            battery_readings: battery.readings,
             mode: current_name,
             mode_idx: current_idx,
             cnc_level,
@@ -675,6 +717,76 @@ mod tests {
     }
 
     #[test]
+    fn test_battery_rejects_empty_response() {
+        let mut t = MockTransport::new();
+        t.add(2, 2, 0x03, &[]);
+        let dev = BmapConnection::new(t, devices::qc_ultra2());
+        assert!(matches!(dev.battery(), Err(BmapError::Device { message, .. })
+            if message.contains("Empty battery response")));
+    }
+
+    #[test]
+    fn test_battery_rejects_invalid_frame() {
+        let mut t = MockTransport::new();
+        t.responses.insert((2, 2), vec![2, 2, 0x08, 0]);
+        let dev = BmapConnection::new(t, devices::qc_ultra2());
+        assert!(matches!(dev.battery(), Err(BmapError::Device { message, .. })
+            if message.contains("Invalid or empty response")));
+    }
+
+    #[test]
+    fn test_battery_readings() {
+        let mut t = MockTransport::new();
+        t.add(2, 2, 0x03, &[
+            0x50,0xff,0xff,0x03, 0x3c,0xff,0xff,0x01,
+            0x3c,0xff,0xff,0x02, 0x46,0xff,0xff,0x04,
+        ]);
+        let dev = BmapConnection::new(t, devices::qc_ultra2_earbuds());
+        let battery = dev.battery_status().unwrap();
+        assert_eq!(battery.readings, vec![
+            BatteryReading { component_id: 3, level: 80 },
+            BatteryReading { component_id: 1, level: 60 },
+            BatteryReading { component_id: 2, level: 60 },
+            BatteryReading { component_id: 4, level: 70 },
+        ]);
+        assert_eq!(battery.aggregate, 70);
+        assert_eq!(dev.transport.sent.borrow().len(), 1);
+    }
+
+    #[test]
+    fn test_battery_rejects_missing_aggregate_component() {
+        let mut t = MockTransport::new();
+        t.add(2, 2, 0x03, &[
+            0x3c,0xff,0xff,0x01, 0x3c,0xff,0xff,0x02,
+            0x50,0xff,0xff,0x03,
+        ]);
+        let dev = BmapConnection::new(t, devices::qc_ultra2_earbuds());
+        assert!(matches!(dev.battery(), Err(BmapError::Device { message, .. })
+            if message.contains("aggregate component 4")));
+    }
+
+    #[test]
+    fn test_status_uses_one_battery_response() {
+        let mut t = MockTransport::new();
+        t.add(2, 2, 0x03, &[
+            0x50,0xff,0xff,0x03, 0x3c,0xff,0xff,0x01,
+            0x46,0xff,0xff,0x04, 0x3c,0xff,0xff,0x02,
+        ]);
+        let dev = BmapConnection::new(t, devices::qc_ultra2_earbuds());
+        let status = dev.status().unwrap();
+        assert_eq!(status.battery, 70);
+        assert_eq!(status.battery_readings.len(), 4);
+        let battery_requests = dev
+            .transport
+            .sent
+            .borrow()
+            .iter()
+            .filter(|packet| packet.starts_with(&[2, 2]))
+            .count();
+        assert_eq!(battery_requests, 1);
+    }
+
+    #[test]
     fn test_firmware() {
         assert_eq!(mock_qc_ultra2().firmware().unwrap(), "8.2.20+g34cf029");
     }
@@ -738,6 +850,7 @@ mod tests {
     fn test_status() {
         let s = mock_qc_ultra2().status().unwrap();
         assert_eq!(s.battery, 80);
+        assert!(s.battery_readings.is_empty());
         assert_eq!(s.mode, "quiet");
         assert_eq!(s.cnc_level, 7);
         assert_eq!(s.cnc_max, 10);
