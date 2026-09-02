@@ -26,7 +26,8 @@ DEVICE_INFO.update({
 # Keep the shared feature layout. Case charging is intentionally not exposed:
 # BMAP [2.5] changes with earbud seating, but stayed the same across observed
 # charger transitions, so it is not a reliable charging boolean.
-FEATURES = dict(_HEADPHONE_FEATURES)
+# Copy each feature dict so mutating this config cannot alias qc_ultra2.
+FEATURES = {name: dict(feature) for name, feature in _HEADPHONE_FEATURES.items()}
 
 # Product-specific IDs: 1=right, 2=left, 3=case, 4=combined buds.
 # ID 4 is the combined earbud reading and is intentionally not displayed.
