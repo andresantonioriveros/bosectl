@@ -227,7 +227,11 @@ def cmd_dump(dev):
     for resp in responses:
         print(fmt_response(resp))
         if resp.fblock == 31 and resp.func == 6 and resp.op == pybmap.constants.OP_STATUS:
-            parser = dev._feature("mode_config").get("parser")
+            try:
+                feature = dev._feature("mode_config")
+            except BmapError:
+                feature = None
+            parser = feature.get("parser") if feature else None
             config = parser(resp.payload) if parser else None
             if config:
                 for field in config._fields:
